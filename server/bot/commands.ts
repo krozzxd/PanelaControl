@@ -1,4 +1,4 @@
-import { Message, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+import { Message, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, TextChannel } from "discord.js";
 import { storage } from "../storage";
 import { log } from "../vite";
 
@@ -6,7 +6,7 @@ export async function handleCommands(message: Message) {
   // Log para debug
   log(`Mensagem recebida: ${message.content}`, "discord");
 
-  const lowerContent = message.content.toLowerCase().trim(); //Added for case-insensitive command handling
+  const lowerContent = message.content.toLowerCase().trim();
 
   if (lowerContent.startsWith("hit!panela")) {
     if (lowerContent.includes("config")) {
@@ -39,20 +39,45 @@ async function handlePanelaConfig(message: Message) {
     }
 
     const [firstLady, antiBan, fourUnit] = roles;
+    log(`Cargos encontrados: ${firstLady.name}, ${antiBan.name}, ${fourUnit.name}`, "discord");
 
-    // Log para debug
-    log(`Cargos identificados: ${firstLady.name}, ${antiBan.name}, ${fourUnit.name}`, "discord");
+    // Verificar se o guildId existe
+    if (!message.guildId) {
+      await message.reply("Erro: Não foi possível identificar o servidor!");
+      return;
+    }
 
-    const guildConfig = {
-      guildId: message.guildId!,
-      firstLadyRoleId: firstLady.id,
-      antiBanRoleId: antiBan.id,
-      fourUnitRoleId: fourUnit.id,
-    };
+    // Verificar se já existe uma configuração
+    const existingConfig = await storage.getGuildConfig(message.guildId);
 
-    await storage.saveGuildConfig(guildConfig);
+    let guildConfig;
+    if (existingConfig) {
+      // Atualizar configuração existente
+      guildConfig = await storage.updateGuildConfig(message.guildId, {
+        firstLadyRoleId: firstLady.id,
+        antiBanRoleId: antiBan.id,
+        fourUnitRoleId: fourUnit.id,
+      });
+      log(`Configuração atualizada para o servidor ${message.guildId}`, "discord");
+    } else {
+      // Criar nova configuração
+      guildConfig = await storage.saveGuildConfig({
+        guildId: message.guildId,
+        firstLadyRoleId: firstLady.id,
+        antiBanRoleId: antiBan.id,
+        fourUnitRoleId: fourUnit.id,
+      });
+      log(`Nova configuração criada para o servidor ${message.guildId}`, "discord");
+    }
 
-    await message.reply(`Configuração salva com sucesso!\nCargos configurados:\n- Primeira Dama: ${firstLady.name}\n- Antiban: ${antiBan.name}\n- 4un: ${fourUnit.name}`);
+    await message.reply(
+      `Configuração ${existingConfig ? 'atualizada' : 'salva'} com sucesso!\n` +
+      `Cargos configurados:\n` +
+      `- Primeira Dama: ${firstLady.name}\n` +
+      `- Antiban: ${antiBan.name}\n` +
+      `- 4un: ${fourUnit.name}`
+    );
+
   } catch (error) {
     log(`Erro ao configurar cargos: ${error}`, "discord");
     await message.reply("Erro ao configurar os cargos. Certifique-se de mencionar os cargos corretamente usando @.");
@@ -96,6 +121,11 @@ async function handlePanelaMenu(message: Message) {
           .setLabel("Fechar")
           .setStyle(ButtonStyle.Danger),
       );
+
+    if (!message.channel || !(message.channel instanceof TextChannel)) {
+      await message.reply("Este comando só pode ser usado em canais de texto!");
+      return;
+    }
 
     try {
       await message.channel.send({

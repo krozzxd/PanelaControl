@@ -13,18 +13,18 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildPresences,
   ],
-  partials: [Partials.Message, Partials.Channel],
+  partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
 
 client.once("ready", () => {
-  log("Bot is ready!", "discord");
+  log(`Bot está pronto! Logado como ${client.user?.tag}`, "discord");
 });
 
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
 
-  // Debug log para cada mensagem recebida
   log(`Mensagem recebida de ${message.author.tag}: ${message.content}`, "discord");
 
   try {
@@ -37,17 +37,32 @@ client.on("messageCreate", async (message) => {
 
 client.on("interactionCreate", async (interaction) => {
   if (!interaction.isButton()) return;
+
+  log(`Interação de botão recebida de ${interaction.user.tag}: ${interaction.customId}`, "discord");
+
   try {
     await handleButtons(interaction);
   } catch (error) {
     log(`Erro ao processar interação de botão: ${error}`, "discord");
-    await interaction.reply({
-      content: "Ocorreu um erro ao processar o botão. Por favor, tente novamente.",
-      ephemeral: true
-    });
+    // Só tenta responder se a interação ainda não foi respondida
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: "Ocorreu um erro ao processar o botão. Por favor, tente novamente.",
+        ephemeral: true
+      });
+    }
   }
 });
 
+// Adiciona handler para erros não tratados
+client.on("error", (error) => {
+  log(`Erro não tratado no cliente Discord: ${error}`, "discord");
+});
+
 export function startBot() {
-  client.login(process.env.DISCORD_TOKEN);
+  client.login(process.env.DISCORD_TOKEN)
+    .catch(error => {
+      log(`Erro ao fazer login do bot: ${error}`, "discord");
+      process.exit(1);
+    });
 }
