@@ -1,6 +1,8 @@
-import { ButtonInteraction, EmbedBuilder, PermissionsBitField, Message, TextChannel, GuildMember, Collection } from "discord.js";
+import { ButtonInteraction, EmbedBuilder, PermissionsBitField, Message, TextChannel, GuildMember, Collection, GuildMemberRoleManager } from "discord.js";
 import { storage } from "../storage";
 import { log } from "../vite";
+import { getRoleLimit } from "@shared/schema";
+import type { GuildConfig } from "@shared/schema";
 
 // Map para armazenar coletores de atribuição de cargo ativos
 const roleAssignmentCollectors = new Map();
@@ -173,6 +175,28 @@ async function toggleRole(
       return;
     }
 
+    const config = await storage.getGuildConfig(interaction.guildId!);
+    if (!config) {
+      await interaction.editReply({
+        content: "Configuração não encontrada!",
+      });
+      return;
+    }
+
+    // Verifica se o usuário tem permissão para usar o comando
+    if (config.allowedRoles && config.allowedRoles.length > 0) {
+      const memberRoles = interaction.member!.roles as GuildMemberRoleManager;
+      const hasPermission = memberRoles.cache.some(role =>
+        config.allowedRoles!.includes(role.id)
+      );
+      if (!hasPermission && !interaction.memberPermissions?.has("Administrator")) {
+        await interaction.editReply({
+          content: "Você não tem permissão para usar este comando!",
+        });
+        return;
+      }
+    }
+
     const targetMember = await interaction.guild.members.fetch(targetUserId);
     if (!targetMember) {
       await interaction.editReply({
@@ -185,6 +209,32 @@ async function toggleRole(
     if (!role) {
       await interaction.editReply({
         content: `Erro: Cargo ${roleName} não encontrado!`,
+      });
+      return;
+    }
+
+    // Verificações específicas para o 4un
+    if (roleName === "4un") {
+      if (config.fourUnitAllowedRoles && config.fourUnitAllowedRoles.length > 0) {
+        const canReceive4un = targetMember.roles.cache.some(role =>
+          config.fourUnitAllowedRoles!.includes(role.id)
+        );
+        if (!canReceive4un) {
+          await interaction.editReply({
+            content: "Este usuário não pode receber o cargo 4un!",
+          });
+          return;
+        }
+      }
+    }
+
+    // Verifica limites
+    const roleMembers = role.members.size;
+    const roleLimit = getRoleLimit(config, roleId);
+
+    if (!targetMember.roles.cache.has(roleId) && roleMembers >= roleLimit) {
+      await interaction.editReply({
+        content: `Limite de ${roleLimit} membros atingido para o cargo ${roleName}!`,
       });
       return;
     }
@@ -204,7 +254,6 @@ async function toggleRole(
     }
 
     const hasRole = targetMember.roles.cache.has(roleId);
-
     if (hasRole) {
       await targetMember.roles.remove(role);
       await interaction.editReply({
@@ -255,9 +304,9 @@ async function createMembersEmbed(interaction: ButtonInteraction): Promise<Embed
   return new EmbedBuilder()
     .setTitle("👥 Membros da Panela")
     .setDescription(
-      `<:anel:1337954327226093598> **Primeira Dama** (${firstLadyCount}/5)\n${formatMembersList(firstLadyRole?.members)}\n\n` +
-      `<:martelo:1337267926452932628> **Antiban** (${antiBanCount}/5)\n${formatMembersList(antiBanRole?.members)}\n\n` +
-      `<:cor:1337925018872709230> **4un** (${fourUnitCount}/5)\n${formatMembersList(fourUnitRole?.members)}`
+      `<:anel:1337954327226093598> **Primeira Dama** (${firstLadyCount}/${getRoleLimit(config, config.firstLadyRoleId!)})\n${formatMembersList(firstLadyRole?.members)}\n\n` +
+      `<:martelo:1337267926452932628> **Antiban** (${antiBanCount}/${getRoleLimit(config, config.antiBanRoleId!)})\n${formatMembersList(antiBanRole?.members)}\n\n` +
+      `<:cor:1337925018872709230> **4un** (${fourUnitCount}/${getRoleLimit(config, config.fourUnitRoleId!)})\n${formatMembersList(fourUnitRole?.members)}`
     )
     .setColor("#2F3136")
     .setTimestamp();

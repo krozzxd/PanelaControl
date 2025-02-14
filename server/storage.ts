@@ -29,6 +29,9 @@ export class MemStorage implements IStorage {
       firstLadyRoleId: insertConfig.firstLadyRoleId ?? null,
       antiBanRoleId: insertConfig.antiBanRoleId ?? null,
       fourUnitRoleId: insertConfig.fourUnitRoleId ?? null,
+      roleLimits: insertConfig.roleLimits ?? [],
+      allowedRoles: insertConfig.allowedRoles ?? [],
+      fourUnitAllowedRoles: insertConfig.fourUnitAllowedRoles ?? [],
     };
     this.configs.set(config.guildId, config);
     return config;
