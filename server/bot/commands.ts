@@ -103,6 +103,16 @@ async function handlePanelaMenu(message: Message) {
       return;
     }
 
+    // Obter contagem de cargos
+    const roles = await message.guild.roles.fetch();
+    const firstLadyRole = roles.get(config.firstLadyRoleId!);
+    const antiBanRole = roles.get(config.antiBanRoleId!);
+    const fourUnitRole = roles.get(config.fourUnitRoleId!);
+
+    const firstLadyCount = firstLadyRole?.members.size || 0;
+    const antiBanCount = antiBanRole?.members.size || 0;
+    const fourUnitCount = fourUnitRole?.members.size || 0;
+
     const embed = new EmbedBuilder()
       .setTitle("🎮 Sistema de Cargos - Panela")
       .setDescription(
@@ -110,9 +120,9 @@ async function handlePanelaMenu(message: Message) {
         "1. Clique em um dos botões abaixo\n" +
         "2. Mencione o usuário que receberá o cargo\n\n" +
         "**Cargos Disponíveis:**\n" +
-        "<:anel:1337954327226093598> **Primeira Dama** - Cargo especial\n" +
-        "<:martelo:1337267926452932628> **Antiban** - Proteção contra banimentos\n" +
-        "<:cor:1337925018872709230> **4un** - Cargo para jogadores\n\n" +
+        `<:anel:1337954327226093598> **Primeira Dama** (${firstLadyCount}/5)\n` +
+        `<:martelo:1337267926452932628> **Antiban** (${antiBanCount}/5)\n` +
+        `<:cor:1337925018872709230> **4un** (${fourUnitCount}/5)\n\n` +
         "💡 *Dica: Você tem 30 segundos para mencionar o usuário após clicar no botão.*"
       )
       .setThumbnail(message.author.displayAvatarURL())

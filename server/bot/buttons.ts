@@ -254,27 +254,28 @@ async function showMembers(interaction: ButtonInteraction) {
     const config = await storage.getGuildConfig(interaction.guildId!);
     if (!config) return;
 
-    const roles = [
-      { id: config.firstLadyRoleId, name: "<:anel:1337954327226093598> Primeira Dama" },
-      { id: config.antiBanRoleId, name: "<:martelo:1337267926452932628> Antiban" },
-      { id: config.fourUnitRoleId, name: "<:cor:1337925018872709230> 4un" },
-    ].filter(role => role.id);
+    // Get roles and their members
+    const roles = await interaction.guild.roles.fetch();
+    const firstLadyRole = roles.get(config.firstLadyRoleId!);
+    const antiBanRole = roles.get(config.antiBanRoleId!);
+    const fourUnitRole = roles.get(config.fourUnitRoleId!);
+
+    const firstLadyCount = firstLadyRole?.members.size || 0;
+    const antiBanCount = antiBanRole?.members.size || 0;
+    const fourUnitCount = fourUnitRole?.members.size || 0;
 
     // Get members for each role
-    const membersInfo = await Promise.all(roles.map(async (role) => {
-      const discordRole = await interaction.guild!.roles.fetch(role.id!);
-      if (!discordRole) return `${role.name}: Cargo não encontrado`;
-
-      const members = Array.from(discordRole.members.values())
-        .map(member => member.user.username)
-        .join(", ");
-
-      return `${role.name}: ${members || "Nenhum membro"}`;
-    }));
+    const firstLadyMembers = firstLadyRole ? Array.from(firstLadyRole.members.values()).map(m => m.user.username).join(", ") : "Nenhum membro";
+    const antiBanMembers = antiBanRole ? Array.from(antiBanRole.members.values()).map(m => m.user.username).join(", ") : "Nenhum membro";
+    const fourUnitMembers = fourUnitRole ? Array.from(fourUnitRole.members.values()).map(m => m.user.username).join(", ") : "Nenhum membro";
 
     const embed = new EmbedBuilder()
       .setTitle("👥 Membros da Panela")
-      .setDescription(membersInfo.join("\n\n"))
+      .setDescription(
+        `<:anel:1337954327226093598> **Primeira Dama** (${firstLadyCount}/5)\n${firstLadyMembers}\n\n` +
+        `<:martelo:1337267926452932628> **Antiban** (${antiBanCount}/5)\n${antiBanMembers}\n\n` +
+        `<:cor:1337925018872709230> **4un** (${fourUnitCount}/5)\n${fourUnitMembers}`
+      )
       .setColor("#2F3136")
       .setTimestamp();
 
