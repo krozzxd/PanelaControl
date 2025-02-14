@@ -80,7 +80,7 @@ export async function handleButtons(interaction: ButtonInteraction) {
           }
         });
 
-        collector.on('end', (collected) => {
+        collector.on('end', collected => {
           if (collected.size === 0) {
             interaction.followUp({
               content: "Tempo esgotado. Por favor, tente novamente.",
@@ -95,10 +95,11 @@ export async function handleButtons(interaction: ButtonInteraction) {
 
       case "ver-membros": {
         try {
-          await showMembers(interaction);
+          const embed = await createMembersEmbed(interaction);
+          await interaction.reply({ embeds: [embed], ephemeral: true });
         } catch (error) {
           log(`Erro ao processar botão ver-membros: ${error}`, "discord");
-          await interaction.followUp({
+          await interaction.reply({
             content: "Erro ao mostrar membros. Por favor, tente novamente.",
             ephemeral: true
           });
@@ -110,45 +111,29 @@ export async function handleButtons(interaction: ButtonInteraction) {
         try {
           if (interaction.message.deletable) {
             await interaction.message.delete();
-            await interaction.reply({
-              content: "Menu fechado!",
-              ephemeral: true
-            });
           }
+          await interaction.reply({
+            content: "Menu fechado!",
+            ephemeral: true
+          });
         } catch (error) {
           log(`Erro ao fechar menu: ${error}`, "discord");
-          if (!interaction.replied) {
-            await interaction.reply({
-              content: "Erro ao fechar o menu. Tente novamente.",
-              ephemeral: true
-            });
-          } else {
-            await interaction.followUp({
-              content: "Erro ao fechar o menu. Tente novamente.",
-              ephemeral: true
-            });
-          }
+          await interaction.reply({
+            content: "Erro ao fechar o menu. Tente novamente.",
+            ephemeral: true
+          });
         }
         break;
       }
     }
   } catch (error) {
     log(`Erro ao processar botão: ${error}`, "discord");
-    try {
-      if (!interaction.replied) {
-        await interaction.reply({
-          content: "Ocorreu um erro ao processar o botão. Por favor, tente novamente.",
-          ephemeral: true,
-        });
-      } else {
-        await interaction.followUp({
-          content: "Ocorreu um erro ao processar o botão. Por favor, tente novamente.",
-          ephemeral: true,
-        });
-      }
-    } catch (e) {
-      log(`Erro ao enviar mensagem de erro: ${e}`, "discord");
-    }
+    await interaction.reply({
+      content: "Ocorreu um erro ao processar o botão. Por favor, tente novamente.",
+      ephemeral: true
+    }).catch(() => {
+      log(`Erro ao enviar mensagem de erro`, "discord");
+    });
   }
 }
 
@@ -225,7 +210,7 @@ async function toggleRole(
   }
 }
 
-async function showMembers(interaction: ButtonInteraction) {
+async function createMembersEmbed(interaction: ButtonInteraction): Promise<EmbedBuilder> {
   if (!interaction.guild) {
     throw new Error("Servidor não encontrado");
   }
@@ -251,7 +236,7 @@ async function showMembers(interaction: ButtonInteraction) {
       .join("\n");
   }
 
-  const embed = new EmbedBuilder()
+  return new EmbedBuilder()
     .setTitle("👥 Membros da Panela")
     .setDescription(
       `<:anel:1337954327226093598> **Primeira Dama** (${firstLadyCount}/5)\n${formatMembersList(firstLadyRole)}\n\n` +
@@ -260,6 +245,4 @@ async function showMembers(interaction: ButtonInteraction) {
     )
     .setColor("#2F3136")
     .setTimestamp();
-
-  await interaction.reply({ embeds: [embed], ephemeral: true });
 }
