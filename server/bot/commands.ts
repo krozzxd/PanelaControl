@@ -307,6 +307,18 @@ async function handlePanelaMenu(message: Message) {
       return;
     }
 
+    // Verificar se o usuário tem permissão para usar o comando
+    if (config.allowedRoles && config.allowedRoles.length > 0) {
+      const hasPermission = message.member?.roles.cache.some(role =>
+        config.allowedRoles!.includes(role.id)
+      );
+
+      if (!hasPermission) {
+        await message.reply("Você não tem permissão para usar este comando! É necessário ter um dos cargos autorizados.");
+        return;
+      }
+    }
+
     // Obter contagem de cargos
     const roles = await message.guild.roles.fetch();
     const firstLadyRole = roles.get(config.firstLadyRoleId!);
