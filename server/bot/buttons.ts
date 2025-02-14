@@ -36,9 +36,6 @@ export async function handleButtons(interaction: ButtonInteraction) {
       case "primeira-dama":
       case "antiban":
       case "4un": {
-        // Adiar a atualização da interação
-        await interaction.deferUpdate();
-
         const buttonConfig = {
           "primeira-dama": {
             roleId: config.firstLadyRoleId,
@@ -55,7 +52,7 @@ export async function handleButtons(interaction: ButtonInteraction) {
         }[interaction.customId];
 
         if (!buttonConfig.roleId) {
-          await interaction.followUp({
+          await interaction.reply({
             content: `Cargo ${buttonConfig.name} não configurado!`,
             ephemeral: true
           });
@@ -64,16 +61,19 @@ export async function handleButtons(interaction: ButtonInteraction) {
 
         // Verificar canal
         if (!(interaction.channel instanceof TextChannel)) {
-          await interaction.followUp({
+          await interaction.reply({
             content: "Este comando só pode ser usado em canais de texto!",
             ephemeral: true
           });
           return;
         }
 
-        await interaction.followUp({
+        // Primeiro, deferimos a interação original para manter o botão ativo
+        await interaction.deferReply({ ephemeral: true });
+
+        // Enviar mensagem pedindo menção
+        const responseMessage = await interaction.editReply({
           content: `Mencione o usuário que receberá o cargo de ${buttonConfig.name}`,
-          ephemeral: true
         });
 
         const collectorKey = `${interaction.user.id}-${interaction.customId}`;
@@ -92,64 +92,66 @@ export async function handleButtons(interaction: ButtonInteraction) {
         collector.on('collect', async (m: Message) => {
           const targetUser = m.mentions.users.first();
           if (targetUser) {
-            await toggleRole(interaction, buttonConfig.roleId!, buttonConfig.name, targetUser.id);
-            await m.delete().catch(() => {
-              log(`Não foi possível deletar a mensagem de menção`, "discord");
-            });
+            try {
+              await toggleRole(interaction, buttonConfig.roleId!, buttonConfig.name, targetUser.id);
+              await m.delete().catch(() => {
+                log(`Não foi possível deletar a mensagem de menção`, "discord");
+              });
+            } catch (error) {
+              log(`Erro ao processar toggle role: ${error}`, "discord");
+              await interaction.followUp({
+                content: "Ocorreu um erro ao processar o cargo. Por favor, tente novamente.",
+                ephemeral: true
+              }).catch(() => {});
+            }
           }
         });
 
         collector.on('end', (collected, reason) => {
           roleAssignmentCollectors.delete(collectorKey);
           if (collected.size === 0 && reason === 'time') {
-            interaction.followUp({
+            interaction.editReply({
               content: "Tempo esgotado. Por favor, tente novamente.",
-              ephemeral: true
-            }).catch(() => {
-              log(`Não foi possível enviar mensagem de tempo esgotado`, "discord");
-            });
+            }).catch(() => {});
           }
         });
         break;
       }
 
       case "ver-membros": {
-        // Adiar a atualização da interação
-        await interaction.deferUpdate();
+        // Deferimos a interação para manter o botão ativo
+        await interaction.deferReply({ ephemeral: true });
 
         try {
           log(`Gerando embed de membros para ${interaction.guild.name}`, "discord");
           const embed = await createMembersEmbed(interaction);
-          await interaction.followUp({ embeds: [embed], ephemeral: true });
+          await interaction.editReply({ embeds: [embed] });
           log(`Embed de membros enviado com sucesso para ${interaction.user.tag}`, "discord");
         } catch (error) {
           log(`Erro ao processar ver-membros: ${error}`, "discord");
-          await interaction.followUp({
+          await interaction.editReply({
             content: "Erro ao mostrar membros. Por favor, tente novamente.",
-            ephemeral: true
           });
         }
         break;
       }
 
       case "fechar": {
-        // Adiar a atualização da interação
-        await interaction.deferUpdate();
+        // Deferimos a interação para manter o botão ativo
+        await interaction.deferReply({ ephemeral: true });
 
         try {
           if (interaction.message.deletable) {
             await interaction.message.delete();
-            await interaction.followUp({ 
-              content: "Menu fechado!", 
-              ephemeral: true 
+            await interaction.editReply({ 
+              content: "Menu fechado!"
             });
             log(`Menu fechado por ${interaction.user.tag}`, "discord");
           }
         } catch (error) {
           log(`Erro ao fechar menu: ${error}`, "discord");
-          await interaction.followUp({
+          await interaction.editReply({
             content: "Erro ao fechar o menu. Tente novamente.",
-            ephemeral: true
           });
         }
         break;
@@ -158,15 +160,14 @@ export async function handleButtons(interaction: ButtonInteraction) {
   } catch (error) {
     log(`Erro ao processar botão: ${error}`, "discord");
     try {
-      if (!interaction.deferred) {
+      if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({
           content: "Ocorreu um erro ao processar o botão. Por favor, tente novamente.",
           ephemeral: true
         });
       } else {
-        await interaction.followUp({
+        await interaction.editReply({
           content: "Ocorreu um erro ao processar o botão. Por favor, tente novamente.",
-          ephemeral: true
         });
       }
     } catch (followUpError) {
