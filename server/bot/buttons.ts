@@ -124,12 +124,28 @@ export async function handleButtons(interaction: ButtonInteraction) {
       }
 
       case "fechar": {
-        if (interaction.message.deletable) {
-          await interaction.message.delete();
-          await interaction.reply({
-            content: "Menu fechado!",
-            ephemeral: true,
-          });
+        try {
+          await interaction.deferReply({ ephemeral: true });
+
+          if (interaction.message.deletable) {
+            await interaction.message.delete();
+            await interaction.editReply({
+              content: "Menu fechado!",
+            });
+          } else {
+            await interaction.editReply({
+              content: "Não foi possível fechar o menu. Tente novamente.",
+            });
+          }
+        } catch (error) {
+          log(`Erro ao fechar menu: ${error}`, "discord");
+          try {
+            await interaction.editReply({
+              content: "Erro ao fechar o menu. Tente novamente.",
+            });
+          } catch (e) {
+            log(`Erro ao enviar mensagem de erro: ${e}`, "discord");
+          }
         }
         break;
       }
