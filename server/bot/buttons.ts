@@ -38,116 +38,82 @@ export async function handleButtons(interaction: ButtonInteraction) {
 
     switch (interaction.customId) {
       case "primeira-dama":
-        if (!config.firstLadyRoleId) {
-          await interaction.reply({
-            content: "Cargo Primeira Dama não configurado!",
-            ephemeral: true,
-          });
-          return;
-        }
-        await interaction.reply({
-          content: "Mencione o usuário que receberá o cargo de Primeira Dama",
-          ephemeral: true
-        });
-
-        // Criar coletor de mensagens
-        const filter = (m: any) => m.author.id === interaction.user.id && m.mentions.users.size > 0;
-        const collector = interaction.channel?.createMessageCollector({ filter, time: 30000, max: 1 });
-
-        collector?.on('collect', async (m) => {
-          const targetUser = m.mentions.users.first();
-          if (targetUser) {
-            await toggleRole(interaction, config.firstLadyRoleId!, "Primeira Dama", targetUser.id);
-            // Deletar mensagem de menção para manter o chat limpo
-            await m.delete().catch(() => {});
-          }
-        });
-
-        collector?.on('end', (collected) => {
-          if (collected.size === 0) {
-            interaction.followUp({
-              content: "Tempo esgotado. Por favor, tente novamente.",
-              ephemeral: true
-            });
-          }
-        });
-        break;
-
       case "antiban":
-        if (!config.antiBanRoleId) {
+      case "4un": {
+        // Definir a mensagem e o roleId baseado no botão
+        const buttonConfig = {
+          "primeira-dama": {
+            roleId: config.firstLadyRoleId,
+            name: "Primeira Dama",
+          },
+          "antiban": {
+            roleId: config.antiBanRoleId,
+            name: "Antiban",
+          },
+          "4un": {
+            roleId: config.fourUnitRoleId,
+            name: "4un",
+          },
+        }[interaction.customId];
+
+        if (!buttonConfig.roleId) {
           await interaction.reply({
-            content: "Cargo Antiban não configurado!",
+            content: `Cargo ${buttonConfig.name} não configurado!`,
             ephemeral: true,
           });
           return;
         }
+
+        // Cria um novo coletor para esta interação específica
         await interaction.reply({
-          content: "Mencione o usuário que receberá o cargo de Antiban",
+          content: `Mencione o usuário que receberá o cargo de ${buttonConfig.name}`,
           ephemeral: true
         });
 
-        // Criar coletor de mensagens
-        const filterAntiBan = (m: any) => m.author.id === interaction.user.id && m.mentions.users.size > 0;
-        const collectorAntiBan = interaction.channel?.createMessageCollector({ filter: filterAntiBan, time: 30000, max: 1 });
-
-        collectorAntiBan?.on('collect', async (m) => {
-          const targetUser = m.mentions.users.first();
-          if (targetUser) {
-            await toggleRole(interaction, config.antiBanRoleId!, "Antiban", targetUser.id);
-            await m.delete().catch(() => {});
-          }
+        const filter = (m: any) => m.author.id === interaction.user.id && m.mentions.users.size > 0;
+        const collector = interaction.channel?.createMessageCollector({
+          filter,
+          time: 30000,
+          max: 1
         });
 
-        collectorAntiBan?.on('end', (collected) => {
-          if (collected.size === 0) {
-            interaction.followUp({
-              content: "Tempo esgotado. Por favor, tente novamente.",
-              ephemeral: true
-            });
-          }
-        });
-        break;
-
-      case "4un":
-        if (!config.fourUnitRoleId) {
-          await interaction.reply({
-            content: "Cargo 4un não configurado!",
-            ephemeral: true,
+        if (!collector) {
+          await interaction.followUp({
+            content: "Erro ao criar coletor de mensagens. Tente novamente.",
+            ephemeral: true
           });
           return;
         }
-        await interaction.reply({
-          content: "Mencione o usuário que receberá o cargo de 4un",
-          ephemeral: true
-        });
 
-        // Criar coletor de mensagens
-        const filter4un = (m: any) => m.author.id === interaction.user.id && m.mentions.users.size > 0;
-        const collector4un = interaction.channel?.createMessageCollector({ filter: filter4un, time: 30000, max: 1 });
-
-        collector4un?.on('collect', async (m) => {
+        collector.on('collect', async (m) => {
           const targetUser = m.mentions.users.first();
           if (targetUser) {
-            await toggleRole(interaction, config.fourUnitRoleId!, "4un", targetUser.id);
-            await m.delete().catch(() => {});
+            await toggleRole(interaction, buttonConfig.roleId!, buttonConfig.name, targetUser.id);
+            await m.delete().catch(() => {
+              log(`Não foi possível deletar a mensagem de menção`, "discord");
+            });
           }
         });
 
-        collector4un?.on('end', (collected) => {
+        collector.on('end', collected => {
           if (collected.size === 0) {
             interaction.followUp({
               content: "Tempo esgotado. Por favor, tente novamente.",
               ephemeral: true
+            }).catch(() => {
+              log(`Não foi possível enviar mensagem de tempo esgotado`, "discord");
             });
           }
         });
         break;
+      }
 
-      case "ver-membros":
+      case "ver-membros": {
         await showMembers(interaction);
         break;
+      }
 
-      case "fechar":
+      case "fechar": {
         if (interaction.message.deletable) {
           await interaction.message.delete();
           await interaction.reply({
@@ -156,15 +122,19 @@ export async function handleButtons(interaction: ButtonInteraction) {
           });
         }
         break;
+      }
     }
   } catch (error) {
     log(`Erro ao processar botão: ${error}`, "discord");
-    // Só tenta responder se a interação ainda não foi respondida
-    if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({
-        content: "Ocorreu um erro ao processar o botão. Por favor, tente novamente.",
-        ephemeral: true,
-      });
+    try {
+      if (!interaction.replied) {
+        await interaction.reply({
+          content: "Ocorreu um erro ao processar o botão. Por favor, tente novamente.",
+          ephemeral: true,
+        });
+      }
+    } catch (e) {
+      log(`Erro ao enviar mensagem de erro: ${e}`, "discord");
     }
   }
 }
