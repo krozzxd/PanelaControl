@@ -149,7 +149,7 @@ async function handlePanelaMenu(message: Message) {
         new ButtonBuilder()
           .setCustomId("ver-membros")
           .setLabel("Ver Membros")
-          .setEmoji("👥")
+          .setEmoji({ id: '1337509080142450719', name: 'peop' })
           .setStyle(ButtonStyle.Secondary),
       );
 
@@ -158,7 +158,6 @@ async function handlePanelaMenu(message: Message) {
         new ButtonBuilder()
           .setCustomId("fechar")
           .setLabel("Fechar")
-          .setEmoji("❌")
           .setStyle(ButtonStyle.Secondary),
       );
 
