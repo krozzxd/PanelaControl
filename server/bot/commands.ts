@@ -119,7 +119,7 @@ async function handlePanelaMenu(message: Message) {
         "**Como usar:**\n\n" +
         "1. Clique em um dos botões abaixo\n" +
         "2. Mencione o usuário que receberá o cargo\n\n" +
-        "**Cargos Disponíveis:**\n" +
+        "**Disponível:**\n" +
         `<:anel:1337954327226093598> **Primeira Dama** (${firstLadyCount}/5)\n` +
         `<:martelo:1337267926452932628> **Antiban** (${antiBanCount}/5)\n` +
         `<:cor:1337925018872709230> **4un** (${fourUnitCount}/5)\n\n` +

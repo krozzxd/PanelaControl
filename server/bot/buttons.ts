@@ -229,21 +229,21 @@ async function toggleRole(interaction: ButtonInteraction, roleId: string, roleNa
 
 async function showMembers(interaction: ButtonInteraction) {
   try {
+    // Defer a resposta imediatamente para evitar timeout
+    await interaction.deferReply({ ephemeral: true });
     log(`Iniciando função showMembers para servidor ${interaction.guildId}`, "discord");
 
     if (!interaction.guild) {
-      await interaction.reply({
-        content: "Erro: Servidor não encontrado!",
-        ephemeral: true
+      await interaction.editReply({
+        content: "Erro: Servidor não encontrado!"
       });
       return;
     }
 
-    const config = await storage.getGuildConfig(interaction.guildId!);
+    const config = await storage.getGuildConfig(interaction.guildId);
     if (!config) {
-      await interaction.reply({
-        content: "Configuração não encontrada! Use hit!panela config primeiro.",
-        ephemeral: true
+      await interaction.editReply({
+        content: "Configuração não encontrada! Use hit!panela config primeiro."
       });
       return;
     }
@@ -286,43 +286,17 @@ async function showMembers(interaction: ButtonInteraction) {
       .setColor("#2F3136")
       .setTimestamp();
 
-    log(`Preparando para enviar embed com informações dos membros`, "discord");
+    log(`Enviando embed com informações dos membros`, "discord");
 
-    try {
-      // Tenta primeiro responder normalmente
-      await interaction.reply({
-        embeds: [embed],
-        ephemeral: true
-      });
-      log(`Embed enviado com sucesso via reply`, "discord");
-    } catch (error: any) {
-      // Se a interação já foi respondida, usa followUp
-      if (error.code === 40060) {
-        await interaction.followUp({
-          embeds: [embed],
-          ephemeral: true
-        });
-        log(`Embed enviado com sucesso via followUp`, "discord");
-      } else {
-        throw error;
-      }
-    }
+    await interaction.editReply({ embeds: [embed] });
+    log(`Embed enviado com sucesso`, "discord");
+
   } catch (error) {
     log(`Erro ao mostrar membros: ${error}`, "discord");
-
-    const errorMessage = "Erro ao mostrar membros! Tente novamente.";
     try {
-      if (!interaction.replied) {
-        await interaction.reply({
-          content: errorMessage,
-          ephemeral: true
-        });
-      } else {
-        await interaction.followUp({
-          content: errorMessage,
-          ephemeral: true
-        });
-      }
+      await interaction.editReply({
+        content: "Erro ao mostrar membros! Tente novamente."
+      });
     } catch (e) {
       log(`Erro ao enviar mensagem de erro: ${e}`, "discord");
     }
