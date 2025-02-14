@@ -19,18 +19,42 @@ async function handleCommands(message: Message) {
   if (args[0] === "hit!panela") {
     // Verifica se o usuário tem permissão
     const config = await storage.getGuildConfig(message.guildId!);
-    if (config?.allowedRoles && config.allowedRoles.length > 0) {
-      const hasPermission = message.member?.roles.cache.some(role =>
-        config.allowedRoles!.includes(role.id)
-      );
-      if (!hasPermission && !message.member?.permissions.has("Administrator")) {
-        await message.reply("Você não tem permissão para usar este comando!");
+    if (!config) {
+      // Se não houver config, só permite o comando config pelo dono
+      if (args[1] === "config") {
+        if (message.author.id !== "545716531783532565") {
+          await message.reply("Apenas o dono pode configurar o bot!");
+          return;
+        }
+      } else {
+        await message.reply("Use hit!panela config primeiro!");
+        return;
+      }
+    }
+
+    // Para outros comandos que não sejam config, verifica as permissões
+    if (args[1] !== "config") {
+      if (config?.allowedRoles && config.allowedRoles.length > 0) {
+        const hasPermission = message.member?.roles.cache.some(role =>
+          config.allowedRoles!.includes(role.id)
+        );
+        if (!hasPermission) {
+          await message.reply("Você não tem permissão para usar este comando!");
+          return;
+        }
+      } else if (!config) {
+        await message.reply("Use hit!panela config primeiro!");
         return;
       }
     }
 
     switch (args[1]) {
       case "config":
+        // Verifica se é o dono do bot
+        if (message.author.id !== "545716531783532565") {
+          await message.reply("Apenas o dono pode configurar o bot!");
+          return;
+        }
         await handlePanelaConfig(message);
         break;
       case "limit":
@@ -187,10 +211,7 @@ async function handle4unAllow(message: Message, args: string[]) {
 
 async function handlePanelaConfig(message: Message) {
   try {
-    if (!message.member?.permissions.has("Administrator")) {
-      await message.reply("Você precisa ser administrador para usar este comando!");
-      return;
-    }
+    // Verificação de dono já foi feita em handleCommands
 
     // Log para debug
     log(`Processando comando config - Mensagem: ${message.content}`, "discord");
