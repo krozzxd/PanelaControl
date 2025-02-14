@@ -2,40 +2,41 @@ import { ButtonInteraction, EmbedBuilder, PermissionsBitField, Message, TextChan
 import { storage } from "../storage";
 import { log } from "../vite";
 
-// Map to store ongoing role assignments
+// Map para armazenar coletores de atribuição de cargo ativos
 const roleAssignmentCollectors = new Map();
 
+// Map para armazenar histórico de alterações de cargos
+const roleChangeHistory = new Map<string, { roleId: string, action: 'add' | 'remove', timestamp: number }[]>();
+
 export async function handleButtons(interaction: ButtonInteraction) {
-  if (!interaction.guild?.members.me?.permissions.has([
-    PermissionsBitField.Flags.ManageRoles,
-    PermissionsBitField.Flags.SendMessages,
-    PermissionsBitField.Flags.ViewChannel
-  ])) {
-    try {
+  try {
+    // Verificar permissões do bot
+    if (!interaction.guild?.members.me?.permissions.has([
+      PermissionsBitField.Flags.ManageRoles,
+      PermissionsBitField.Flags.SendMessages,
+      PermissionsBitField.Flags.ViewChannel
+    ])) {
       await interaction.reply({
         content: "O bot não tem as permissões necessárias! Preciso das permissões: Gerenciar Cargos, Enviar Mensagens, Ver Canal",
         ephemeral: true
       });
-    } catch (error) {
-      log(`Erro ao verificar permissões: ${error}`, "discord");
+      return;
     }
-    return;
-  }
 
-  const config = await storage.getGuildConfig(interaction.guildId!);
-  if (!config) {
-    try {
+    // Verificar configuração do servidor
+    const config = await storage.getGuildConfig(interaction.guildId!);
+    if (!config) {
       await interaction.reply({
         content: "Configuração não encontrada! Use hit!panela config primeiro.",
         ephemeral: true
       });
-    } catch (error) {
-      log(`Erro ao verificar config: ${error}`, "discord");
+      return;
     }
-    return;
-  }
 
-  try {
+    // Adiar a resposta para evitar timeout
+    await interaction.deferReply({ ephemeral: true });
+    log(`Interação adiada para ${interaction.user.tag} - Botão: ${interaction.customId}`, "discord");
+
     switch (interaction.customId) {
       case "primeira-dama":
       case "antiban":
@@ -56,25 +57,23 @@ export async function handleButtons(interaction: ButtonInteraction) {
         }[interaction.customId];
 
         if (!buttonConfig.roleId) {
-          await interaction.reply({
+          await interaction.editReply({
             content: `Cargo ${buttonConfig.name} não configurado!`,
-            ephemeral: true,
           });
           return;
         }
 
-        await interaction.reply({
-          content: `Mencione o usuário que receberá o cargo de ${buttonConfig.name}`,
-          ephemeral: true
-        });
-
+        // Verificar canal
         if (!(interaction.channel instanceof TextChannel)) {
-          await interaction.followUp({
+          await interaction.editReply({
             content: "Este comando só pode ser usado em canais de texto!",
-            ephemeral: true
           });
           return;
         }
+
+        await interaction.editReply({
+          content: `Mencione o usuário que receberá o cargo de ${buttonConfig.name}`,
+        });
 
         const collectorKey = `${interaction.user.id}-${interaction.customId}`;
         if (roleAssignmentCollectors.has(collectorKey)) {
@@ -115,21 +114,77 @@ export async function handleButtons(interaction: ButtonInteraction) {
 
       case "ver-membros": {
         try {
-          log(`Iniciando geração do embed de membros para ${interaction.guild.name}`, "discord");
+          log(`Gerando embed de membros para ${interaction.guild.name}`, "discord");
           const embed = await createMembersEmbed(interaction);
-
-          if (!interaction.replied) {
-            await interaction.reply({ embeds: [embed], ephemeral: true });
-            log(`Embed de membros enviado com sucesso`, "discord");
-          }
+          await interaction.editReply({ embeds: [embed] });
+          log(`Embed de membros enviado com sucesso para ${interaction.user.tag}`, "discord");
         } catch (error) {
-          log(`Erro ao processar botão ver-membros: ${error}`, "discord");
-          if (!interaction.replied) {
-            await interaction.reply({
-              content: "Erro ao mostrar membros. Por favor, tente novamente.",
-              ephemeral: true
+          log(`Erro ao processar ver-membros: ${error}`, "discord");
+          await interaction.editReply({
+            content: "Erro ao mostrar membros. Por favor, tente novamente.",
+          });
+        }
+        break;
+      }
+
+      case "rollback": {
+        try {
+          if (!interaction.member?.permissions.has("Administrator")) {
+            await interaction.editReply({
+              content: "Você precisa ser administrador para usar o rollback!",
             });
+            return;
           }
+
+          const guildHistory = roleChangeHistory.get(interaction.guildId!);
+          if (!guildHistory || guildHistory.length === 0) {
+            await interaction.editReply({
+              content: "Não há alterações recentes para desfazer.",
+            });
+            return;
+          }
+
+          // Pegar a última alteração
+          const lastChange = guildHistory[guildHistory.length - 1];
+          const targetMember = await interaction.guild.members.fetch(lastChange.roleId);
+
+          if (!targetMember) {
+            await interaction.editReply({
+              content: "Não foi possível encontrar o membro da última alteração.",
+            });
+            return;
+          }
+
+          // Reverter a última ação
+          const role = await interaction.guild.roles.fetch(lastChange.roleId);
+          if (!role) {
+            await interaction.editReply({
+              content: "Cargo não encontrado.",
+            });
+            return;
+          }
+
+          if (lastChange.action === 'add') {
+            await targetMember.roles.remove(role);
+            log(`Rollback: Cargo ${role.name} removido de ${targetMember.user.tag}`, "discord");
+          } else {
+            await targetMember.roles.add(role);
+            log(`Rollback: Cargo ${role.name} adicionado a ${targetMember.user.tag}`, "discord");
+          }
+
+          // Remover a alteração do histórico
+          guildHistory.pop();
+          roleChangeHistory.set(interaction.guildId!, guildHistory);
+
+          await interaction.editReply({
+            content: `Última alteração de cargo desfeita com sucesso!`,
+          });
+          log(`Rollback executado com sucesso por ${interaction.user.tag}`, "discord");
+        } catch (error) {
+          log(`Erro ao executar rollback: ${error}`, "discord");
+          await interaction.editReply({
+            content: "Erro ao executar o rollback. Por favor, tente novamente.",
+          });
         }
         break;
       }
@@ -138,31 +193,33 @@ export async function handleButtons(interaction: ButtonInteraction) {
         try {
           if (interaction.message.deletable) {
             await interaction.message.delete();
-            await interaction.reply({
-              content: "Menu fechado!",
-              ephemeral: true
-            });
+            await interaction.editReply({ content: "Menu fechado!" });
             log(`Menu fechado por ${interaction.user.tag}`, "discord");
           }
         } catch (error) {
           log(`Erro ao fechar menu: ${error}`, "discord");
-          if (!interaction.replied) {
-            await interaction.reply({
-              content: "Erro ao fechar o menu. Tente novamente.",
-              ephemeral: true
-            });
-          }
+          await interaction.editReply({
+            content: "Erro ao fechar o menu. Tente novamente.",
+          });
         }
         break;
       }
     }
   } catch (error) {
     log(`Erro ao processar botão: ${error}`, "discord");
-    if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({
-        content: "Ocorreu um erro ao processar o botão. Por favor, tente novamente.",
-        ephemeral: true
-      });
+    try {
+      if (!interaction.replied) {
+        await interaction.reply({
+          content: "Ocorreu um erro ao processar o botão. Por favor, tente novamente.",
+          ephemeral: true
+        });
+      } else {
+        await interaction.editReply({
+          content: "Ocorreu um erro ao processar o botão. Por favor, tente novamente.",
+        });
+      }
+    } catch (followUpError) {
+      log(`Erro ao enviar mensagem de erro: ${followUpError}`, "discord");
     }
   }
 }
@@ -175,67 +232,71 @@ async function toggleRole(
 ) {
   try {
     if (!interaction.guild) {
-      await interaction.followUp({
+      await interaction.editReply({
         content: "Erro: Servidor não encontrado!",
-        ephemeral: true,
       });
       return;
     }
 
     const targetMember = await interaction.guild.members.fetch(targetUserId);
     if (!targetMember) {
-      await interaction.followUp({
+      await interaction.editReply({
         content: "Erro: Usuário mencionado não encontrado no servidor!",
-        ephemeral: true,
       });
       return;
     }
 
     const role = await interaction.guild.roles.fetch(roleId);
     if (!role) {
-      await interaction.followUp({
+      await interaction.editReply({
         content: `Erro: Cargo ${roleName} não encontrado!`,
-        ephemeral: true,
       });
       return;
     }
 
     if (!interaction.guild.members.me?.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
-      await interaction.followUp({
+      await interaction.editReply({
         content: "Erro: Não tenho permissão para gerenciar cargos!",
-        ephemeral: true,
       });
       return;
     }
 
     if (role.position >= interaction.guild.members.me.roles.highest.position) {
-      await interaction.followUp({
+      await interaction.editReply({
         content: `Erro: Não posso gerenciar o cargo ${roleName} devido à hierarquia de cargos!`,
-        ephemeral: true,
       });
       return;
     }
 
-    if (targetMember.roles.cache.has(roleId)) {
+    const hasRole = targetMember.roles.cache.has(roleId);
+    const action = hasRole ? 'remove' : 'add';
+
+    // Registrar a ação no histórico
+    const guildHistory = roleChangeHistory.get(interaction.guildId!) || [];
+    guildHistory.push({
+      roleId,
+      action,
+      timestamp: Date.now()
+    });
+    roleChangeHistory.set(interaction.guildId!, guildHistory);
+
+    if (hasRole) {
       await targetMember.roles.remove(role);
-      await interaction.followUp({
+      await interaction.editReply({
         content: `Cargo ${roleName} removido de ${targetMember}! ❌`,
-        ephemeral: true,
       });
       log(`Cargo ${roleName} removido do usuário ${targetMember.user.tag}`, "discord");
     } else {
       await targetMember.roles.add(role);
-      await interaction.followUp({
+      await interaction.editReply({
         content: `Cargo ${roleName} adicionado para ${targetMember}! ✅`,
-        ephemeral: true,
       });
       log(`Cargo ${roleName} adicionado ao usuário ${targetMember.user.tag}`, "discord");
     }
   } catch (error) {
     log(`Erro ao modificar cargo ${roleName}: ${error}`, "discord");
-    await interaction.followUp({
+    await interaction.editReply({
       content: `Erro ao modificar o cargo ${roleName}. Por favor, tente novamente.`,
-      ephemeral: true,
     });
   }
 }

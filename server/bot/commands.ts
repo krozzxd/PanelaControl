@@ -153,6 +153,15 @@ async function handlePanelaMenu(message: Message) {
           .setStyle(ButtonStyle.Secondary),
 
         new ButtonBuilder()
+          .setCustomId("rollback")
+          .setLabel("Rollback")
+          .setEmoji("⏪")
+          .setStyle(ButtonStyle.Danger),
+      );
+
+    const closeButton = new ActionRowBuilder<ButtonBuilder>()
+      .addComponents(
+        new ButtonBuilder()
           .setCustomId("fechar")
           .setLabel("Fechar")
           .setEmoji("❌")
@@ -167,7 +176,7 @@ async function handlePanelaMenu(message: Message) {
     try {
       const sentMessage = await message.channel.send({
         embeds: [embed],
-        components: [buttons],
+        components: [buttons, closeButton],
       });
       log(`Menu enviado com sucesso. ID da mensagem: ${sentMessage.id}`, "discord");
     } catch (error) {
