@@ -1,10 +1,10 @@
-import { Message, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, TextChannel } from "discord.js";
+import { Message, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, TextChannel, PermissionsBitField } from "discord.js";
 import { storage } from "../storage";
 import { log } from "../vite";
 
 export async function handleCommands(message: Message) {
   // Log para debug
-  log(`Mensagem recebida: ${message.content}`, "discord");
+  log(`Processando mensagem: ${message.content}`, "discord");
 
   const lowerContent = message.content.toLowerCase().trim();
 
@@ -86,6 +86,16 @@ async function handlePanelaConfig(message: Message) {
 
 async function handlePanelaMenu(message: Message) {
   try {
+    // Verificar se o bot tem as permissões necessárias
+    if (!message.guild?.members.me?.permissions.has([
+      PermissionsBitField.Flags.ManageRoles,
+      PermissionsBitField.Flags.SendMessages,
+      PermissionsBitField.Flags.ViewChannel
+    ])) {
+      await message.reply("O bot não tem as permissões necessárias! Preciso das permissões: Gerenciar Cargos, Enviar Mensagens, Ver Canal");
+      return;
+    }
+
     const config = await storage.getGuildConfig(message.guildId!);
 
     if (!config) {
@@ -94,31 +104,51 @@ async function handlePanelaMenu(message: Message) {
     }
 
     const embed = new EmbedBuilder()
-      .setTitle("🎮 Controle do sistema de panela")
+      .setTitle("🎮 Sistema de Cargos - Panela")
+      .setDescription(
+        "**Como usar:**\n\n" +
+        "1. Clique em um dos botões abaixo\n" +
+        "2. Mencione o usuário que receberá o cargo\n\n" +
+        "**Cargos Disponíveis:**\n" +
+        "👑 **Primeira Dama** - Cargo especial\n" +
+        "🛡️ **Antiban** - Proteção contra banimentos\n" +
+        "🎮 **4un** - Cargo para jogadores\n\n" +
+        "💡 *Dica: Você tem 30 segundos para mencionar o usuário após clicar no botão.*"
+      )
       .setThumbnail(message.author.displayAvatarURL())
-      .setColor("#2F3136");
+      .setColor("#2F3136")
+      .setTimestamp();
 
     const buttons = new ActionRowBuilder<ButtonBuilder>()
       .addComponents(
         new ButtonBuilder()
           .setCustomId("primeira-dama")
           .setLabel("Primeira Dama")
+          .setEmoji("👑")
           .setStyle(ButtonStyle.Primary),
+
         new ButtonBuilder()
           .setCustomId("antiban")
           .setLabel("Antiban")
-          .setStyle(ButtonStyle.Primary),
+          .setEmoji("🛡️")
+          .setStyle(ButtonStyle.Success),
+
         new ButtonBuilder()
           .setCustomId("4un")
           .setLabel("4un")
-          .setStyle(ButtonStyle.Primary),
+          .setEmoji("🎮")
+          .setStyle(ButtonStyle.Secondary),
+
         new ButtonBuilder()
           .setCustomId("ver-membros")
           .setLabel("Ver Membros")
+          .setEmoji("👥")
           .setStyle(ButtonStyle.Secondary),
+
         new ButtonBuilder()
           .setCustomId("fechar")
           .setLabel("Fechar")
+          .setEmoji("❌")
           .setStyle(ButtonStyle.Danger),
       );
 
@@ -128,10 +158,11 @@ async function handlePanelaMenu(message: Message) {
     }
 
     try {
-      await message.channel.send({
+      const sentMessage = await message.channel.send({
         embeds: [embed],
         components: [buttons],
       });
+      log(`Menu enviado com sucesso. ID da mensagem: ${sentMessage.id}`, "discord");
     } catch (error) {
       log(`Erro ao enviar mensagem: ${error}`, "discord");
       await message.reply("Não foi possível enviar a mensagem no canal. Verifique as permissões do bot.");

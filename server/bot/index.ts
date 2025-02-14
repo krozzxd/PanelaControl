@@ -14,8 +14,16 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildPresences,
+    GatewayIntentBits.GuildMessageReactions,
+    GatewayIntentBits.DirectMessages,
   ],
-  partials: [Partials.Message, Partials.Channel, Partials.Reaction],
+  partials: [
+    Partials.Message, 
+    Partials.Channel, 
+    Partials.Reaction,
+    Partials.User,
+    Partials.GuildMember
+  ],
 });
 
 client.once("ready", () => {
@@ -36,20 +44,23 @@ client.on("messageCreate", async (message) => {
 });
 
 client.on("interactionCreate", async (interaction) => {
-  if (!interaction.isButton()) return;
+  // Log para todas as interações
+  log(`Interação recebida de ${interaction.user.tag} - Tipo: ${interaction.type}`, "discord");
 
-  log(`Interação de botão recebida de ${interaction.user.tag}: ${interaction.customId}`, "discord");
+  if (interaction.isButton()) {
+    log(`Interação de botão recebida - ID: ${interaction.customId}`, "discord");
 
-  try {
-    await handleButtons(interaction);
-  } catch (error) {
-    log(`Erro ao processar interação de botão: ${error}`, "discord");
-    // Só tenta responder se a interação ainda não foi respondida
-    if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({
-        content: "Ocorreu um erro ao processar o botão. Por favor, tente novamente.",
-        ephemeral: true
-      });
+    try {
+      await handleButtons(interaction);
+    } catch (error) {
+      log(`Erro ao processar interação de botão: ${error}`, "discord");
+      // Só tenta responder se a interação ainda não foi respondida
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+          content: "Ocorreu um erro ao processar o botão. Por favor, tente novamente.",
+          ephemeral: true
+        });
+      }
     }
   }
 });
@@ -61,6 +72,9 @@ client.on("error", (error) => {
 
 export function startBot() {
   client.login(process.env.DISCORD_TOKEN)
+    .then(() => {
+      log("Bot logado com sucesso!", "discord");
+    })
     .catch(error => {
       log(`Erro ao fazer login do bot: ${error}`, "discord");
       process.exit(1);
