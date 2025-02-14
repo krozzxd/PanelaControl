@@ -51,16 +51,23 @@ async function handlePanelaLimit(message: Message, args: string[]) {
       return;
     }
 
-    if (message.mentions.roles.size !== 1 || args.length !== 1) {
+    if (args.length !== 3 || message.mentions.roles.size !== 1) {
       await message.reply(
-        "Use: hit!panela limit @cargo número\n" +
-        "Exemplo: hit!panela limit @Primeira-Dama 5"
+        "Use: hit!panela limit [pd/antiban/4un] @cargo número\n" +
+        "Exemplo: hit!panela limit pd @cargo 5"
       );
       return;
     }
 
+    const config = await storage.getGuildConfig(message.guildId!);
+    if (!config) {
+      await message.reply("Use hit!panela config primeiro!");
+      return;
+    }
+
+    const [type, , limitStr] = args;
     const role = message.mentions.roles.first();
-    const limit = parseInt(args[0]);
+    const limit = parseInt(limitStr);
 
     if (!role) {
       await message.reply("Por favor, mencione um cargo válido!");
@@ -72,14 +79,30 @@ async function handlePanelaLimit(message: Message, args: string[]) {
       return;
     }
 
-    const config = await storage.getGuildConfig(message.guildId!);
-    if (!config) {
-      await message.reply("Use hit!panela config primeiro!");
+    // Mapear o tipo para o ID do cargo configurado
+    let targetRoleId: string | null = null;
+    switch (type.toLowerCase()) {
+      case "pd":
+        targetRoleId = config.firstLadyRoleId;
+        break;
+      case "antiban":
+        targetRoleId = config.antiBanRoleId;
+        break;
+      case "4un":
+        targetRoleId = config.fourUnitRoleId;
+        break;
+      default:
+        await message.reply("Tipo inválido! Use: pd, antiban ou 4un");
+        return;
+    }
+
+    if (!targetRoleId) {
+      await message.reply(`Cargo ${type} não está configurado!`);
       return;
     }
 
     // Atualizar o limite para o cargo específico
-    const newLimits = setRoleLimit(config, role.id, limit);
+    const newLimits = setRoleLimit(config, targetRoleId, limit); // Corrected line to use targetRoleId
     await storage.updateGuildConfig(message.guildId!, { roleLimits: newLimits });
 
     await message.reply(`Limite do cargo ${role.name} atualizado para ${limit}!`);
