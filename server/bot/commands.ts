@@ -110,9 +110,9 @@ async function handlePanelaMenu(message: Message) {
         "1. Clique em um dos botões abaixo\n" +
         "2. Mencione o usuário que receberá o cargo\n\n" +
         "**Cargos Disponíveis:**\n" +
-        "👑 **Primeira Dama** - Cargo especial\n" +
-        "🛡️ **Antiban** - Proteção contra banimentos\n" +
-        "🎮 **4un** - Cargo para jogadores\n\n" +
+        "<:anel:1337954327226093598> **Primeira Dama** - Cargo especial\n" +
+        "<:martelo:1337267926452932628> **Antiban** - Proteção contra banimentos\n" +
+        "<:cor:1337925018872709230> **4un** - Cargo para jogadores\n\n" +
         "💡 *Dica: Você tem 30 segundos para mencionar o usuário após clicar no botão.*"
       )
       .setThumbnail(message.author.displayAvatarURL())
@@ -123,20 +123,17 @@ async function handlePanelaMenu(message: Message) {
       .addComponents(
         new ButtonBuilder()
           .setCustomId("primeira-dama")
-          .setLabel("Primeira Dama")
-          .setEmoji("👑")
+          .setEmoji({ id: '1337954327226093598', name: 'anel' })
           .setStyle(ButtonStyle.Primary),
 
         new ButtonBuilder()
           .setCustomId("antiban")
-          .setLabel("Antiban")
-          .setEmoji("🛡️")
+          .setEmoji({ id: '1337267926452932628', name: 'martelo' })
           .setStyle(ButtonStyle.Success),
 
         new ButtonBuilder()
           .setCustomId("4un")
-          .setLabel("4un")
-          .setEmoji("🎮")
+          .setEmoji({ id: '1337925018872709230', name: 'cor' })
           .setStyle(ButtonStyle.Secondary),
 
         new ButtonBuilder()

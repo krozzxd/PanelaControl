@@ -255,10 +255,10 @@ async function showMembers(interaction: ButtonInteraction) {
     if (!config) return;
 
     const roles = [
-      { id: config.firstLadyRoleId, name: "👑 Primeira Dama" },
-      { id: config.antiBanRoleId, name: "🛡️ Antiban" },
-      { id: config.fourUnitRoleId, name: "🎮 4un" },
-    ].filter(role => role.id); // Remove roles that are not configured
+      { id: config.firstLadyRoleId, name: "<:anel:1337954327226093598> Primeira Dama" },
+      { id: config.antiBanRoleId, name: "<:martelo:1337267926452932628> Antiban" },
+      { id: config.fourUnitRoleId, name: "<:cor:1337925018872709230> 4un" },
+    ].filter(role => role.id);
 
     // Get members for each role
     const membersInfo = await Promise.all(roles.map(async (role) => {
