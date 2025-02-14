@@ -12,6 +12,43 @@ function formatMembersList(members: Collection<string, GuildMember> | undefined)
     .join("\n");
 }
 
+async function handlePanelaAllow(message: Message, args: string[]) {
+  try {
+    // Verificar se é o dono do bot
+    if (message.author.id !== "545716531783532565") {
+      await message.reply("Apenas o dono pode definir permissões!");
+      return;
+    }
+
+    if (message.mentions.roles.size === 0) {
+      await message.reply("Mencione os cargos que poderão usar o comando!");
+      return;
+    }
+
+    const config = await storage.getGuildConfig(message.guildId!);
+    if (!config) {
+      await message.reply("Use hit!panela config primeiro!");
+      return;
+    }
+
+    const allowedRoles = Array.from(message.mentions.roles.values()).map(role => role.id);
+
+    log(`Atualizando cargos permitidos:
+      Cargos antigos: ${config.allowedRoles?.join(", ") || "nenhum"}
+      Novos cargos: ${allowedRoles.join(", ")}`, "discord");
+
+    await storage.updateGuildConfig(message.guildId!, { allowedRoles });
+
+    const rolesList = message.mentions.roles.map(role => role.name).join(", ");
+    await message.reply(`Cargos autorizados atualizados: ${rolesList}`);
+    log(`Cargos autorizados atualizados por ${message.author.tag}: ${rolesList}`, "discord");
+
+  } catch (error) {
+    log(`Erro ao definir cargos autorizados: ${error}`, "discord");
+    await message.reply("Erro ao definir cargos autorizados. Por favor, tente novamente.");
+  }
+}
+
 async function handleCommands(message: Message) {
   log(`Processando mensagem: ${message.content}`, "discord");
 
@@ -33,11 +70,15 @@ async function handleCommands(message: Message) {
       return;
     }
 
-    // Verificar permissões para todos os comandos exceto 'config'
-    if (args[1] !== "config") {
-      // Se houver roles permitidas configuradas
+    // Sempre permitir comandos config e allow apenas para o dono
+    if (args[1] === "config" || args[1] === "allow") {
+      if (message.author.id !== "545716531783532565") {
+        await message.reply("Apenas o dono pode usar este comando!");
+        return;
+      }
+    } else {
+      // Para outros comandos, verificar se o usuário tem permissão
       if (config.allowedRoles && config.allowedRoles.length > 0) {
-        // Verificar se o usuário tem algum dos cargos permitidos
         const hasPermission = message.member?.roles.cache.some(role =>
           config.allowedRoles!.includes(role.id)
         );
@@ -51,14 +92,14 @@ async function handleCommands(message: Message) {
           await message.reply("Você não tem permissão para usar este comando! É necessário ter um dos cargos autorizados.");
           return;
         }
+      } else {
+        log(`Nenhum cargo autorizado configurado no servidor ${message.guild?.name}`, "discord");
+        await message.reply("Nenhum cargo está autorizado a usar o comando. Peça ao dono para configurar com hit!panela allow @cargo");
+        return;
       }
-    } else if (message.author.id !== "545716531783532565") {
-      // Comando config só pode ser usado pelo dono
-      await message.reply("Apenas o dono pode configurar o bot!");
-      return;
     }
 
-    // Processar comandos apenas se tiver permissão
+    // Processar comandos
     switch (args[1]) {
       case "config":
         await handlePanelaConfig(message);
@@ -150,37 +191,6 @@ async function handlePanelaLimit(message: Message, args: string[]) {
   } catch (error) {
     log(`Erro ao definir limite: ${error}`, "discord");
     await message.reply("Erro ao definir limite. Por favor, tente novamente.");
-  }
-}
-
-async function handlePanelaAllow(message: Message, args: string[]) {
-  try {
-    if (!message.member?.permissions.has("Administrator")) {
-      await message.reply("Apenas administradores podem definir permissões!");
-      return;
-    }
-
-    if (message.mentions.roles.size === 0) {
-      await message.reply("Mencione os cargos que poderão usar o comando!");
-      return;
-    }
-
-    const config = await storage.getGuildConfig(message.guildId!);
-    if (!config) {
-      await message.reply("Use hit!panela config primeiro!");
-      return;
-    }
-
-    const allowedRoles = Array.from(message.mentions.roles.values()).map(role => role.id);
-    await storage.updateGuildConfig(message.guildId!, { allowedRoles });
-
-    const rolesList = message.mentions.roles.map(role => role.name).join(", ");
-    await message.reply(`Cargos autorizados atualizados: ${rolesList}`);
-    log(`Cargos autorizados atualizados por ${message.author.tag}: ${rolesList}`, "discord");
-
-  } catch (error) {
-    log(`Erro ao definir cargos autorizados: ${error}`, "discord");
-    await message.reply("Erro ao definir cargos autorizados. Por favor, tente novamente.");
   }
 }
 
@@ -328,6 +338,10 @@ async function handlePanelaMenu(message: Message) {
         await message.reply("Você não tem permissão para usar este comando! É necessário ter um dos cargos autorizados.");
         return;
       }
+    } else {
+      log(`Nenhum cargo autorizado configurado no servidor ${message.guild?.name}`, "discord");
+      await message.reply("Nenhum cargo está autorizado a usar o comando. Peça ao dono para configurar com hit!panela allow @cargo");
+      return;
     }
 
     // Obter contagem de cargos
