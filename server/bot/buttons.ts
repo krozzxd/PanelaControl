@@ -5,9 +5,6 @@ import { log } from "../vite";
 // Map para armazenar coletores de atribuição de cargo ativos
 const roleAssignmentCollectors = new Map();
 
-// Map para armazenar histórico de alterações de cargos
-const roleChangeHistory = new Map<string, { roleId: string, action: 'add' | 'remove', timestamp: number }[]>();
-
 export async function handleButtons(interaction: ButtonInteraction) {
   try {
     // Verificar permissões do bot
@@ -127,68 +124,6 @@ export async function handleButtons(interaction: ButtonInteraction) {
         break;
       }
 
-      case "rollback": {
-        try {
-          if (!interaction.member?.permissions.has("Administrator")) {
-            await interaction.editReply({
-              content: "Você precisa ser administrador para usar o rollback!",
-            });
-            return;
-          }
-
-          const guildHistory = roleChangeHistory.get(interaction.guildId!);
-          if (!guildHistory || guildHistory.length === 0) {
-            await interaction.editReply({
-              content: "Não há alterações recentes para desfazer.",
-            });
-            return;
-          }
-
-          // Pegar a última alteração
-          const lastChange = guildHistory[guildHistory.length - 1];
-          const targetMember = await interaction.guild.members.fetch(lastChange.roleId);
-
-          if (!targetMember) {
-            await interaction.editReply({
-              content: "Não foi possível encontrar o membro da última alteração.",
-            });
-            return;
-          }
-
-          // Reverter a última ação
-          const role = await interaction.guild.roles.fetch(lastChange.roleId);
-          if (!role) {
-            await interaction.editReply({
-              content: "Cargo não encontrado.",
-            });
-            return;
-          }
-
-          if (lastChange.action === 'add') {
-            await targetMember.roles.remove(role);
-            log(`Rollback: Cargo ${role.name} removido de ${targetMember.user.tag}`, "discord");
-          } else {
-            await targetMember.roles.add(role);
-            log(`Rollback: Cargo ${role.name} adicionado a ${targetMember.user.tag}`, "discord");
-          }
-
-          // Remover a alteração do histórico
-          guildHistory.pop();
-          roleChangeHistory.set(interaction.guildId!, guildHistory);
-
-          await interaction.editReply({
-            content: `Última alteração de cargo desfeita com sucesso!`,
-          });
-          log(`Rollback executado com sucesso por ${interaction.user.tag}`, "discord");
-        } catch (error) {
-          log(`Erro ao executar rollback: ${error}`, "discord");
-          await interaction.editReply({
-            content: "Erro ao executar o rollback. Por favor, tente novamente.",
-          });
-        }
-        break;
-      }
-
       case "fechar": {
         try {
           if (interaction.message.deletable) {
@@ -269,16 +204,6 @@ async function toggleRole(
     }
 
     const hasRole = targetMember.roles.cache.has(roleId);
-    const action = hasRole ? 'remove' : 'add';
-
-    // Registrar a ação no histórico
-    const guildHistory = roleChangeHistory.get(interaction.guildId!) || [];
-    guildHistory.push({
-      roleId,
-      action,
-      timestamp: Date.now()
-    });
-    roleChangeHistory.set(interaction.guildId!, guildHistory);
 
     if (hasRole) {
       await targetMember.roles.remove(role);

@@ -151,12 +151,6 @@ async function handlePanelaMenu(message: Message) {
           .setLabel("Ver Membros")
           .setEmoji("👥")
           .setStyle(ButtonStyle.Secondary),
-
-        new ButtonBuilder()
-          .setCustomId("rollback")
-          .setLabel("Rollback")
-          .setEmoji("⏪")
-          .setStyle(ButtonStyle.Danger),
       );
 
     const closeButton = new ActionRowBuilder<ButtonBuilder>()
