@@ -4,14 +4,11 @@ import { log } from "../vite";
 
 export async function handleButtons(interaction: ButtonInteraction) {
   try {
-    // Verificar permissões necessárias do bot
-    const requiredPermissions = [
+    if (!interaction.guild?.members.me?.permissions.has([
       PermissionsBitField.Flags.ManageRoles,
       PermissionsBitField.Flags.SendMessages,
       PermissionsBitField.Flags.ViewChannel
-    ];
-
-    if (!interaction.guild?.members.me?.permissions.has(requiredPermissions)) {
+    ])) {
       await interaction.reply({
         content: "O bot não tem as permissões necessárias! Preciso das permissões: Gerenciar Cargos, Enviar Mensagens, Ver Canal",
         ephemeral: true
@@ -26,21 +23,6 @@ export async function handleButtons(interaction: ButtonInteraction) {
         ephemeral: true
       });
       return;
-    }
-
-    // Verificar se os cargos ainda existem e se o bot pode gerenciá-los
-    const roles = await interaction.guild.roles.fetch();
-    const roleIds = [config.firstLadyRoleId, config.antiBanRoleId, config.fourUnitRoleId].filter(Boolean);
-
-    for (const roleId of roleIds) {
-      const role = roles.get(roleId!);
-      if (role && role.position >= interaction.guild.members.me.roles.highest.position) {
-        await interaction.reply({
-          content: "Erro: Um ou mais cargos estão acima do meu cargo mais alto. Por favor, mova meu cargo para cima deles.",
-          ephemeral: true
-        });
-        return;
-      }
     }
 
     switch (interaction.customId) {
