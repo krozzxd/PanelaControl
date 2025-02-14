@@ -3,7 +3,6 @@ import { storage } from "../storage";
 import { log } from "../vite";
 
 export async function handleCommands(message: Message) {
-  // Log para debug
   log(`Processando mensagem: ${message.content}`, "discord");
 
   const lowerContent = message.content.toLowerCase().trim();
@@ -24,7 +23,6 @@ async function handlePanelaConfig(message: Message) {
       return;
     }
 
-    // Log para debug
     log(`Processando comando config - Mensagem: ${message.content}`, "discord");
     log(`Menções de cargos: ${JSON.stringify(Array.from(message.mentions.roles.values()).map(r => r.name))}`, "discord");
 
@@ -45,6 +43,24 @@ async function handlePanelaConfig(message: Message) {
     if (!message.guildId) {
       await message.reply("Erro: Não foi possível identificar o servidor!");
       return;
+    }
+
+    // Configurar permissões dos cargos
+    for (const role of roles) {
+      try {
+        await role.setPermissions([], "Configurado pelo bot para ser gerenciado apenas por ele");
+        // Garantir que apenas o bot pode gerenciar o cargo
+        await role.edit({
+          permissions: [],
+          mentionable: true,
+          hoist: true, // Mostrar membros separadamente
+          position: message.guild!.members.me!.roles.highest.position - 1 // Logo abaixo do cargo mais alto do bot
+        });
+      } catch (error) {
+        log(`Erro ao configurar permissões do cargo ${role.name}: ${error}`, "discord");
+        await message.reply(`Erro ao configurar permissões do cargo ${role.name}. Certifique-se de que o bot tem permissões adequadas e que seu cargo está acima dos cargos mencionados.`);
+        return;
+      }
     }
 
     // Verificar se já existe uma configuração
@@ -75,12 +91,13 @@ async function handlePanelaConfig(message: Message) {
       `Cargos configurados:\n` +
       `- Primeira Dama: ${firstLady.name}\n` +
       `- Antiban: ${antiBan.name}\n` +
-      `- 4un: ${fourUnit.name}`
+      `- 4un: ${fourUnit.name}\n\n` +
+      `⚠️ Estes cargos agora só podem ser gerenciados pelo bot!`
     );
 
   } catch (error) {
     log(`Erro ao configurar cargos: ${error}`, "discord");
-    await message.reply("Erro ao configurar os cargos. Certifique-se de mencionar os cargos corretamente usando @.");
+    await message.reply("Erro ao configurar os cargos. Certifique-se de mencionar os cargos corretamente usando @ e que o bot tem as permissões necessárias.");
   }
 }
 
