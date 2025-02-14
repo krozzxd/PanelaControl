@@ -32,14 +32,13 @@ export async function handleButtons(interaction: ButtonInteraction) {
       return;
     }
 
-    // Adiar a resposta para evitar timeout
-    await interaction.deferReply({ ephemeral: true });
-    log(`Interação adiada para ${interaction.user.tag} - Botão: ${interaction.customId}`, "discord");
-
     switch (interaction.customId) {
       case "primeira-dama":
       case "antiban":
       case "4un": {
+        // Adiar a atualização da interação
+        await interaction.deferUpdate();
+
         const buttonConfig = {
           "primeira-dama": {
             roleId: config.firstLadyRoleId,
@@ -56,22 +55,25 @@ export async function handleButtons(interaction: ButtonInteraction) {
         }[interaction.customId];
 
         if (!buttonConfig.roleId) {
-          await interaction.editReply({
+          await interaction.followUp({
             content: `Cargo ${buttonConfig.name} não configurado!`,
+            ephemeral: true
           });
           return;
         }
 
         // Verificar canal
         if (!(interaction.channel instanceof TextChannel)) {
-          await interaction.editReply({
+          await interaction.followUp({
             content: "Este comando só pode ser usado em canais de texto!",
+            ephemeral: true
           });
           return;
         }
 
-        await interaction.editReply({
+        await interaction.followUp({
           content: `Mencione o usuário que receberá o cargo de ${buttonConfig.name}`,
+          ephemeral: true
         });
 
         const collectorKey = `${interaction.user.id}-${interaction.customId}`;
@@ -112,31 +114,42 @@ export async function handleButtons(interaction: ButtonInteraction) {
       }
 
       case "ver-membros": {
+        // Adiar a atualização da interação
+        await interaction.deferUpdate();
+
         try {
           log(`Gerando embed de membros para ${interaction.guild.name}`, "discord");
           const embed = await createMembersEmbed(interaction);
-          await interaction.editReply({ embeds: [embed] });
+          await interaction.followUp({ embeds: [embed], ephemeral: true });
           log(`Embed de membros enviado com sucesso para ${interaction.user.tag}`, "discord");
         } catch (error) {
           log(`Erro ao processar ver-membros: ${error}`, "discord");
-          await interaction.editReply({
+          await interaction.followUp({
             content: "Erro ao mostrar membros. Por favor, tente novamente.",
+            ephemeral: true
           });
         }
         break;
       }
 
       case "fechar": {
+        // Adiar a atualização da interação
+        await interaction.deferUpdate();
+
         try {
           if (interaction.message.deletable) {
             await interaction.message.delete();
-            await interaction.editReply({ content: "Menu fechado!" });
+            await interaction.followUp({ 
+              content: "Menu fechado!", 
+              ephemeral: true 
+            });
             log(`Menu fechado por ${interaction.user.tag}`, "discord");
           }
         } catch (error) {
           log(`Erro ao fechar menu: ${error}`, "discord");
-          await interaction.editReply({
+          await interaction.followUp({
             content: "Erro ao fechar o menu. Tente novamente.",
+            ephemeral: true
           });
         }
         break;
@@ -145,14 +158,15 @@ export async function handleButtons(interaction: ButtonInteraction) {
   } catch (error) {
     log(`Erro ao processar botão: ${error}`, "discord");
     try {
-      if (!interaction.replied) {
+      if (!interaction.deferred) {
         await interaction.reply({
           content: "Ocorreu um erro ao processar o botão. Por favor, tente novamente.",
           ephemeral: true
         });
       } else {
-        await interaction.editReply({
+        await interaction.followUp({
           content: "Ocorreu um erro ao processar o botão. Por favor, tente novamente.",
+          ephemeral: true
         });
       }
     } catch (followUpError) {
