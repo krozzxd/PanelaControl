@@ -294,20 +294,24 @@ async function createMembersEmbed(interaction: ButtonInteraction): Promise<Embed
   const antiBanCount = antiBanRole?.members.size || 0;
   const fourUnitCount = fourUnitRole?.members.size || 0;
 
-  function formatMembersList(members: Collection<string, GuildMember> | undefined): string {
-    if (!members || members.size === 0) return "• Nenhum membro";
-    return Array.from(members.values())
-      .map((member: GuildMember) => `• ${member.user.username}`)
-      .join("\n");
-  }
+  const firstLadyLimit = getRoleLimit(config, config.firstLadyRoleId!);
+  const antiBanLimit = getRoleLimit(config, config.antiBanRoleId!);
+  const fourUnitLimit = getRoleLimit(config, config.fourUnitRoleId!);
 
   return new EmbedBuilder()
     .setTitle("👥 Membros da Panela")
     .setDescription(
-      `<:anel:1337954327226093598> **Primeira Dama** (${firstLadyCount}/${getRoleLimit(config, config.firstLadyRoleId!)})\n${formatMembersList(firstLadyRole?.members)}\n\n` +
-      `<:martelo:1337267926452932628> **Antiban** (${antiBanCount}/${getRoleLimit(config, config.antiBanRoleId!)})\n${formatMembersList(antiBanRole?.members)}\n\n` +
-      `<:cor:1337925018872709230> **4un** (${fourUnitCount}/${getRoleLimit(config, config.fourUnitRoleId!)})\n${formatMembersList(fourUnitRole?.members)}`
+      `<:anel:1337954327226093598> **Primeira Dama** (${firstLadyCount}/${firstLadyLimit})\n${formatMembersList(firstLadyRole?.members)}\n\n` +
+      `<:martelo:1337267926452932628> **Antiban** (${antiBanCount}/${antiBanLimit})\n${formatMembersList(antiBanRole?.members)}\n\n` +
+      `<:cor:1337925018872709230> **4un** (${fourUnitCount}/${fourUnitLimit})\n${formatMembersList(fourUnitRole?.members)}`
     )
     .setColor("#2F3136")
     .setTimestamp();
+}
+
+function formatMembersList(members: Collection<string, GuildMember> | undefined): string {
+  if (!members || members.size === 0) return "• Nenhum membro";
+  return Array.from(members.values())
+    .map((member: GuildMember) => `• ${member.user.username}`)
+    .join("\n");
 }

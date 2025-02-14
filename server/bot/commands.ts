@@ -1,8 +1,16 @@
-import { Message, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, TextChannel, PermissionsBitField, Role, GuildMember } from "discord.js";
+import { Message, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, TextChannel, PermissionsBitField, Role, GuildMember, Collection } from "discord.js";
 import { storage } from "../storage";
 import { log } from "../vite";
 import { getRoleLimit, setRoleLimit } from "@shared/schema";
 import type { GuildConfig } from "@shared/schema";
+
+// Função atualizada para formatar a lista de membros corretamente
+function formatMembersList(members: Collection<string, GuildMember> | undefined): string {
+  if (!members || members.size === 0) return "• Nenhum membro";
+  return Array.from(members.values())
+    .map((member: GuildMember) => `• ${member.user.username}`)
+    .join("\n");
+}
 
 async function handleCommands(message: Message) {
   log(`Processando mensagem: ${message.content}`, "discord");
@@ -287,6 +295,10 @@ async function handlePanelaMenu(message: Message) {
     const antiBanCount = antiBanRole?.members.size || 0;
     const fourUnitCount = fourUnitRole?.members.size || 0;
 
+    const firstLadyLimit = getRoleLimit(config, config.firstLadyRoleId!);
+    const antiBanLimit = getRoleLimit(config, config.antiBanRoleId!);
+    const fourUnitLimit = getRoleLimit(config, config.fourUnitRoleId!);
+
     const embed = new EmbedBuilder()
       .setTitle("🎮 Sistema de Cargos - Panela")
       .setDescription(
@@ -294,9 +306,9 @@ async function handlePanelaMenu(message: Message) {
         "1. Clique em um dos botões abaixo\n" +
         "2. Mencione o usuário que receberá o cargo\n\n" +
         "**Disponível:**\n" +
-        `<:anel:1337954327226093598> **Primeira Dama** (${firstLadyCount}/${getRoleLimit(config, config.firstLadyRoleId!)})\n` +
-        `<:martelo:1337267926452932628> **Antiban** (${antiBanCount}/${getRoleLimit(config, config.antiBanRoleId!)})\n` +
-        `<:cor:1337925018872709230> **4un** (${fourUnitCount}/${getRoleLimit(config, config.fourUnitRoleId!)})\n\n` +
+        `<:anel:1337954327226093598> **Primeira Dama** (${firstLadyCount}/${firstLadyLimit})\n` +
+        `<:martelo:1337267926452932628> **Antiban** (${antiBanCount}/${antiBanLimit})\n` +
+        `<:cor:1337925018872709230> **4un** (${fourUnitCount}/${fourUnitLimit})\n\n` +
         "💡 *Dica: Você tem 30 segundos para mencionar o usuário após clicar no botão.*"
       )
       .setThumbnail(message.author.displayAvatarURL())
