@@ -1,7 +1,8 @@
-import { Client, GatewayIntentBits, Partials } from "discord.js";
+import { Client, GatewayIntentBits, Partials, GuildMember, Role } from "discord.js";
 import { handleCommands } from "./commands";
 import { handleButtons } from "./buttons";
 import { log } from "../vite";
+import { storage } from "../storage";
 
 if (!process.env.DISCORD_TOKEN) {
   throw new Error("Missing DISCORD_TOKEN environment variable");
@@ -44,7 +45,6 @@ client.on("messageCreate", async (message) => {
 });
 
 client.on("interactionCreate", async (interaction) => {
-  // Log para todas as interações
   log(`Interação recebida de ${interaction.user.tag} - Tipo: ${interaction.type}`, "discord");
 
   if (interaction.isButton()) {
@@ -54,7 +54,6 @@ client.on("interactionCreate", async (interaction) => {
       await handleButtons(interaction);
     } catch (error) {
       log(`Erro ao processar interação de botão: ${error}`, "discord");
-      // Só tenta responder se a interação ainda não foi respondida
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({
           content: "Ocorreu um erro ao processar o botão. Por favor, tente novamente.",
@@ -62,6 +61,56 @@ client.on("interactionCreate", async (interaction) => {
         });
       }
     }
+  }
+});
+
+// Monitorar mudanças nos cargos dos membros
+client.on("guildMemberUpdate", async (oldMember: GuildMember, newMember: GuildMember) => {
+  try {
+    // Verificar se existe configuração para o servidor
+    const config = await storage.getGuildConfig(newMember.guild.id);
+    if (!config) return;
+
+    // Lista de cargos protegidos
+    const protectedRoles = [
+      config.firstLadyRoleId,
+      config.antiBanRoleId,
+      config.fourUnitRoleId
+    ].filter(Boolean) as string[];
+
+    // Obter cargos que foram adicionados e removidos
+    const addedRoles = newMember.roles.cache
+      .filter(role => !oldMember.roles.cache.has(role.id))
+      .map(role => role.id);
+
+    const removedRoles = oldMember.roles.cache
+      .filter(role => !newMember.roles.cache.has(role.id))
+      .map(role => role.id);
+
+    // Verificar se algum cargo protegido foi alterado
+    const protectedAdded = addedRoles.some(roleId => protectedRoles.includes(roleId));
+    const protectedRemoved = removedRoles.some(roleId => protectedRoles.includes(roleId));
+
+    if (protectedAdded || protectedRemoved) {
+      log(`Tentativa de alteração manual de cargo protegido detectada para ${newMember.user.tag}`, "discord");
+
+      // Reverter para os cargos anteriores
+      await newMember.roles.set(oldMember.roles.cache);
+
+      // Tentar notificar no canal
+      try {
+        const channel = newMember.guild.systemChannel;
+        if (channel) {
+          await channel.send({
+            content: `⚠️ Tentativa de modificação manual de cargo protegido detectada.\nOs cargos da Panela só podem ser gerenciados através do bot.`,
+          });
+        }
+      } catch (error) {
+        log(`Erro ao enviar mensagem de notificação: ${error}`, "discord");
+      }
+    }
+  } catch (error) {
+    log(`Erro ao processar mudança de cargo: ${error}`, "discord");
   }
 });
 
