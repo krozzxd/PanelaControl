@@ -134,12 +134,12 @@ async function handlePanelaMenu(message: Message) {
         new ButtonBuilder()
           .setCustomId("primeira-dama")
           .setEmoji({ id: '1337954327226093598', name: 'anel' })
-          .setStyle(ButtonStyle.Primary),
+          .setStyle(ButtonStyle.Secondary),
 
         new ButtonBuilder()
           .setCustomId("antiban")
           .setEmoji({ id: '1337267926452932628', name: 'martelo' })
-          .setStyle(ButtonStyle.Success),
+          .setStyle(ButtonStyle.Secondary),
 
         new ButtonBuilder()
           .setCustomId("4un")
@@ -159,7 +159,7 @@ async function handlePanelaMenu(message: Message) {
           .setCustomId("fechar")
           .setLabel("Fechar")
           .setEmoji("❌")
-          .setStyle(ButtonStyle.Danger),
+          .setStyle(ButtonStyle.Secondary),
       );
 
     if (!message.channel || !(message.channel instanceof TextChannel)) {
