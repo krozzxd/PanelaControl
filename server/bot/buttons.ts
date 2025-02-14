@@ -254,21 +254,27 @@ async function showMembers(interaction: ButtonInteraction) {
     const config = await storage.getGuildConfig(interaction.guildId!);
     if (!config) return;
 
-    const roleIds = [
-      config.firstLadyRoleId,
-      config.antiBanRoleId,
-      config.fourUnitRoleId,
-    ].filter(Boolean); // Remove null values
+    const roles = [
+      { id: config.firstLadyRoleId, name: "👑 Primeira Dama" },
+      { id: config.antiBanRoleId, name: "🛡️ Antiban" },
+      { id: config.fourUnitRoleId, name: "🎮 4un" },
+    ].filter(role => role.id); // Remove roles that are not configured
 
-    const memberCounts = await Promise.all(roleIds.map(async (roleId) => {
-      if (!roleId) return "";
-      const role = await interaction.guild!.roles.fetch(roleId);
-      return role ? `${role.name}: ${role.members.size} membros` : "";
+    // Get members for each role
+    const membersInfo = await Promise.all(roles.map(async (role) => {
+      const discordRole = await interaction.guild!.roles.fetch(role.id!);
+      if (!discordRole) return `${role.name}: Cargo não encontrado`;
+
+      const members = Array.from(discordRole.members.values())
+        .map(member => member.user.username)
+        .join(", ");
+
+      return `${role.name}: ${members || "Nenhum membro"}`;
     }));
 
     const embed = new EmbedBuilder()
       .setTitle("👥 Membros da Panela")
-      .setDescription(memberCounts.filter(Boolean).join("\n"))
+      .setDescription(membersInfo.join("\n\n"))
       .setColor("#2F3136")
       .setTimestamp();
 
