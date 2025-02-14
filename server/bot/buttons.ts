@@ -2,6 +2,9 @@ import { ButtonInteraction, EmbedBuilder, PermissionsBitField, Message, TextChan
 import { storage } from "../storage";
 import { log } from "../vite";
 
+// Map to store ongoing role assignments
+const roleAssignmentCollectors = new Map();
+
 export async function handleButtons(interaction: ButtonInteraction) {
   try {
     if (!interaction.guild?.members.me?.permissions.has([
@@ -65,10 +68,21 @@ export async function handleButtons(interaction: ButtonInteraction) {
           return;
         }
 
+        // Create a unique key for this user's collector
+        const collectorKey = `${interaction.user.id}-${interaction.customId}`;
+
+        // Stop any existing collector for this user and button
+        if (roleAssignmentCollectors.has(collectorKey)) {
+          roleAssignmentCollectors.get(collectorKey).stop();
+        }
+
         const collector = interaction.channel.createMessageCollector({
           filter: (m: Message) => m.author.id === interaction.user.id && m.mentions.users.size > 0,
-          time: 30000
+          time: 30000,
+          max: 1 // Only collect one message
         });
+
+        roleAssignmentCollectors.set(collectorKey, collector);
 
         collector.on('collect', async (m: Message) => {
           const targetUser = m.mentions.users.first();
@@ -80,8 +94,9 @@ export async function handleButtons(interaction: ButtonInteraction) {
           }
         });
 
-        collector.on('end', collected => {
-          if (collected.size === 0) {
+        collector.on('end', (collected, reason) => {
+          roleAssignmentCollectors.delete(collectorKey);
+          if (collected.size === 0 && reason === 'time') {
             interaction.followUp({
               content: "Tempo esgotado. Por favor, tente novamente.",
               ephemeral: true
@@ -128,12 +143,12 @@ export async function handleButtons(interaction: ButtonInteraction) {
     }
   } catch (error) {
     log(`Erro ao processar botão: ${error}`, "discord");
-    await interaction.reply({
-      content: "Ocorreu um erro ao processar o botão. Por favor, tente novamente.",
-      ephemeral: true
-    }).catch(() => {
-      log(`Erro ao enviar mensagem de erro`, "discord");
-    });
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: "Ocorreu um erro ao processar o botão. Por favor, tente novamente.",
+        ephemeral: true
+      });
+    }
   }
 }
 

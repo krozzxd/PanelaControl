@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Partials, GuildMember, Role } from "discord.js";
+import { Client, GatewayIntentBits, Partials, GuildMember, AuditLogEvent, PermissionsBitField, PartialGuildMember } from "discord.js";
 import { handleCommands } from "./commands";
 import { handleButtons } from "./buttons";
 import { log } from "../vite";
@@ -17,6 +17,7 @@ const client = new Client({
     GatewayIntentBits.GuildPresences,
     GatewayIntentBits.GuildMessageReactions,
     GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.GuildModeration, // Use this instead of GuildAuditLogs
   ],
   partials: [
     Partials.Message, 
@@ -65,7 +66,7 @@ client.on("interactionCreate", async (interaction) => {
 });
 
 // Monitorar mudanças nos cargos dos membros
-client.on("guildMemberUpdate", async (oldMember: GuildMember, newMember: GuildMember) => {
+client.on("guildMemberUpdate", async (oldMember: GuildMember | PartialGuildMember, newMember: GuildMember) => {
   try {
     // Verificar se existe configuração para o servidor
     const config = await storage.getGuildConfig(newMember.guild.id);
@@ -78,7 +79,20 @@ client.on("guildMemberUpdate", async (oldMember: GuildMember, newMember: GuildMe
       config.fourUnitRoleId
     ].filter(Boolean) as string[];
 
-    // Obter cargos que foram adicionados e removidos
+    // Se não há cargos protegidos, retorna
+    if (protectedRoles.length === 0) return;
+
+    // Verificar se o bot tem as permissões necessárias
+    if (!newMember.guild.members.me?.permissions.has([
+      PermissionsBitField.Flags.ManageRoles,
+      PermissionsBitField.Flags.SendMessages,
+      PermissionsBitField.Flags.ViewChannel
+    ])) {
+      log(`Bot não tem as permissões necessárias no servidor ${newMember.guild.name}`, "discord");
+      return;
+    }
+
+    // Se não houve mudanças nos cargos, retorna
     const addedRoles = newMember.roles.cache
       .filter(role => !oldMember.roles.cache.has(role.id))
       .map(role => role.id);
@@ -87,18 +101,54 @@ client.on("guildMemberUpdate", async (oldMember: GuildMember, newMember: GuildMe
       .filter(role => !newMember.roles.cache.has(role.id))
       .map(role => role.id);
 
+    if (addedRoles.length === 0 && removedRoles.length === 0) return;
+
     // Verificar se algum cargo protegido foi alterado
     const protectedAdded = addedRoles.some(roleId => protectedRoles.includes(roleId));
     const protectedRemoved = removedRoles.some(roleId => protectedRoles.includes(roleId));
 
     if (protectedAdded || protectedRemoved) {
+      // Buscar logs de auditoria para verificar quem fez a mudança
+      const auditLogs = await newMember.guild.fetchAuditLogs({
+        type: AuditLogEvent.MemberRoleUpdate,
+        limit: 1,
+      });
+
+      const roleUpdateLog = auditLogs.entries.first();
+
+      // Se a mudança foi feita pelo bot, permite
+      if (roleUpdateLog?.executor?.id === client.user?.id) {
+        log(`Mudança de cargo feita pelo bot para ${newMember.user.tag}`, "discord");
+        return;
+      }
+
       log(`Tentativa de alteração manual de cargo protegido detectada para ${newMember.user.tag}`, "discord");
 
-      // Reverter para os cargos anteriores
-      await newMember.roles.set(oldMember.roles.cache);
+      // Verificar hierarquia de cargos
+      const botMember = newMember.guild.members.me;
+      if (!botMember) {
+        log(`Bot não encontrado no servidor ${newMember.guild.name}`, "discord");
+        return;
+      }
 
-      // Tentar notificar no canal
+      // Verificar se o bot pode gerenciar os cargos
+      const roles = await newMember.guild.roles.fetch();
+      const canManageAllRoles = protectedRoles.every(roleId => {
+        const role = roles.get(roleId);
+        return role && role.position < botMember.roles.highest.position;
+      });
+
+      if (!canManageAllRoles) {
+        log(`Bot não tem hierarquia suficiente para gerenciar alguns cargos protegidos`, "discord");
+        return;
+      }
+
+      // Reverter para os cargos anteriores
       try {
+        await newMember.roles.set(oldMember.roles.cache);
+        log(`Cargos revertidos com sucesso para ${newMember.user.tag}`, "discord");
+
+        // Tentar notificar no canal
         const channel = newMember.guild.systemChannel;
         if (channel) {
           await channel.send({
@@ -106,7 +156,7 @@ client.on("guildMemberUpdate", async (oldMember: GuildMember, newMember: GuildMe
           });
         }
       } catch (error) {
-        log(`Erro ao enviar mensagem de notificação: ${error}`, "discord");
+        log(`Erro ao reverter cargos para ${newMember.user.tag}: ${error}`, "discord");
       }
     }
   } catch (error) {
