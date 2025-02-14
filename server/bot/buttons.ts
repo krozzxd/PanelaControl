@@ -137,22 +137,28 @@ export async function handleButtons(interaction: ButtonInteraction) {
       }
 
       case "fechar": {
-        // Deferimos a interação para manter o botão ativo
-        await interaction.deferReply({ ephemeral: true });
-
         try {
+          // Use deferUpdate instead of deferReply to acknowledge the button interaction
+          await interaction.deferUpdate();
+
           if (interaction.message.deletable) {
             await interaction.message.delete();
-            await interaction.editReply({ 
-              content: "Menu fechado!"
+            // Send a new ephemeral message instead of editing the original
+            await interaction.followUp({ 
+              content: "Menu fechado!", 
+              ephemeral: true 
             });
             log(`Menu fechado por ${interaction.user.tag}`, "discord");
           }
         } catch (error) {
           log(`Erro ao fechar menu: ${error}`, "discord");
-          await interaction.editReply({
-            content: "Erro ao fechar o menu. Tente novamente.",
-          });
+          // If there's an error, try to send a new message
+          if (!interaction.replied) {
+            await interaction.followUp({
+              content: "Erro ao fechar o menu. Tente novamente.",
+              ephemeral: true
+            });
+          }
         }
         break;
       }
