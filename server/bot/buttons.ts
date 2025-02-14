@@ -1,4 +1,4 @@
-import { ButtonInteraction, EmbedBuilder, PermissionsBitField, Message, TextChannel, GuildMember } from "discord.js";
+import { ButtonInteraction, EmbedBuilder, PermissionsBitField, Message, TextChannel, GuildMember, Collection } from "discord.js";
 import { storage } from "../storage";
 import { log } from "../vite";
 
@@ -6,28 +6,36 @@ import { log } from "../vite";
 const roleAssignmentCollectors = new Map();
 
 export async function handleButtons(interaction: ButtonInteraction) {
-  try {
-    if (!interaction.guild?.members.me?.permissions.has([
-      PermissionsBitField.Flags.ManageRoles,
-      PermissionsBitField.Flags.SendMessages,
-      PermissionsBitField.Flags.ViewChannel
-    ])) {
+  if (!interaction.guild?.members.me?.permissions.has([
+    PermissionsBitField.Flags.ManageRoles,
+    PermissionsBitField.Flags.SendMessages,
+    PermissionsBitField.Flags.ViewChannel
+  ])) {
+    try {
       await interaction.reply({
         content: "O bot não tem as permissões necessárias! Preciso das permissões: Gerenciar Cargos, Enviar Mensagens, Ver Canal",
         ephemeral: true
       });
-      return;
+    } catch (error) {
+      log(`Erro ao verificar permissões: ${error}`, "discord");
     }
+    return;
+  }
 
-    const config = await storage.getGuildConfig(interaction.guildId!);
-    if (!config) {
+  const config = await storage.getGuildConfig(interaction.guildId!);
+  if (!config) {
+    try {
       await interaction.reply({
         content: "Configuração não encontrada! Use hit!panela config primeiro.",
         ephemeral: true
       });
-      return;
+    } catch (error) {
+      log(`Erro ao verificar config: ${error}`, "discord");
     }
+    return;
+  }
 
+  try {
     switch (interaction.customId) {
       case "primeira-dama":
       case "antiban":
@@ -68,10 +76,7 @@ export async function handleButtons(interaction: ButtonInteraction) {
           return;
         }
 
-        // Create a unique key for this user's collector
         const collectorKey = `${interaction.user.id}-${interaction.customId}`;
-
-        // Stop any existing collector for this user and button
         if (roleAssignmentCollectors.has(collectorKey)) {
           roleAssignmentCollectors.get(collectorKey).stop();
         }
@@ -79,7 +84,7 @@ export async function handleButtons(interaction: ButtonInteraction) {
         const collector = interaction.channel.createMessageCollector({
           filter: (m: Message) => m.author.id === interaction.user.id && m.mentions.users.size > 0,
           time: 30000,
-          max: 1 // Only collect one message
+          max: 1
         });
 
         roleAssignmentCollectors.set(collectorKey, collector);
@@ -110,14 +115,21 @@ export async function handleButtons(interaction: ButtonInteraction) {
 
       case "ver-membros": {
         try {
+          log(`Iniciando geração do embed de membros para ${interaction.guild.name}`, "discord");
           const embed = await createMembersEmbed(interaction);
-          await interaction.reply({ embeds: [embed], ephemeral: true });
+
+          if (!interaction.replied) {
+            await interaction.reply({ embeds: [embed], ephemeral: true });
+            log(`Embed de membros enviado com sucesso`, "discord");
+          }
         } catch (error) {
           log(`Erro ao processar botão ver-membros: ${error}`, "discord");
-          await interaction.reply({
-            content: "Erro ao mostrar membros. Por favor, tente novamente.",
-            ephemeral: true
-          });
+          if (!interaction.replied) {
+            await interaction.reply({
+              content: "Erro ao mostrar membros. Por favor, tente novamente.",
+              ephemeral: true
+            });
+          }
         }
         break;
       }
@@ -126,17 +138,20 @@ export async function handleButtons(interaction: ButtonInteraction) {
         try {
           if (interaction.message.deletable) {
             await interaction.message.delete();
+            await interaction.reply({
+              content: "Menu fechado!",
+              ephemeral: true
+            });
+            log(`Menu fechado por ${interaction.user.tag}`, "discord");
           }
-          await interaction.reply({
-            content: "Menu fechado!",
-            ephemeral: true
-          });
         } catch (error) {
           log(`Erro ao fechar menu: ${error}`, "discord");
-          await interaction.reply({
-            content: "Erro ao fechar o menu. Tente novamente.",
-            ephemeral: true
-          });
+          if (!interaction.replied) {
+            await interaction.reply({
+              content: "Erro ao fechar o menu. Tente novamente.",
+              ephemeral: true
+            });
+          }
         }
         break;
       }
@@ -244,9 +259,9 @@ async function createMembersEmbed(interaction: ButtonInteraction): Promise<Embed
   const antiBanCount = antiBanRole?.members.size || 0;
   const fourUnitCount = fourUnitRole?.members.size || 0;
 
-  function formatMembersList(role: any) {
-    if (!role || !role.members) return "• Nenhum membro";
-    return Array.from(role.members.values())
+  function formatMembersList(members: Collection<string, GuildMember> | undefined): string {
+    if (!members || members.size === 0) return "• Nenhum membro";
+    return Array.from(members.values())
       .map((member: GuildMember) => `• ${member.user.username}`)
       .join("\n");
   }
@@ -254,9 +269,9 @@ async function createMembersEmbed(interaction: ButtonInteraction): Promise<Embed
   return new EmbedBuilder()
     .setTitle("👥 Membros da Panela")
     .setDescription(
-      `<:anel:1337954327226093598> **Primeira Dama** (${firstLadyCount}/5)\n${formatMembersList(firstLadyRole)}\n\n` +
-      `<:martelo:1337267926452932628> **Antiban** (${antiBanCount}/5)\n${formatMembersList(antiBanRole)}\n\n` +
-      `<:cor:1337925018872709230> **4un** (${fourUnitCount}/5)\n${formatMembersList(fourUnitRole)}`
+      `<:anel:1337954327226093598> **Primeira Dama** (${firstLadyCount}/5)\n${formatMembersList(firstLadyRole?.members)}\n\n` +
+      `<:martelo:1337267926452932628> **Antiban** (${antiBanCount}/5)\n${formatMembersList(antiBanRole?.members)}\n\n` +
+      `<:cor:1337925018872709230> **4un** (${fourUnitCount}/5)\n${formatMembersList(fourUnitRole?.members)}`
     )
     .setColor("#2F3136")
     .setTimestamp();
