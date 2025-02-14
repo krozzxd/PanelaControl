@@ -52,6 +52,7 @@ async function handleCommands(message: Message) {
   }
 }
 
+// Atualizar a função handlePanelaLimit
 async function handlePanelaLimit(message: Message, args: string[]) {
   try {
     if (!message.member?.permissions.has("Administrator")) {

@@ -1,4 +1,6 @@
 import { guildConfigs, type GuildConfig, type InsertGuildConfig } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   getGuildConfig(guildId: string): Promise<GuildConfig | undefined>;
@@ -6,34 +8,20 @@ export interface IStorage {
   updateGuildConfig(guildId: string, config: Partial<InsertGuildConfig>): Promise<GuildConfig>;
 }
 
-export class MemStorage implements IStorage {
-  private configs: Map<string, GuildConfig>;
-  private currentId: number;
-
-  constructor() {
-    this.configs = new Map();
-    this.currentId = 1;
-  }
-
+export class DatabaseStorage implements IStorage {
   async getGuildConfig(guildId: string): Promise<GuildConfig | undefined> {
-    return Array.from(this.configs.values()).find(
-      (config) => config.guildId === guildId,
-    );
+    const [config] = await db
+      .select()
+      .from(guildConfigs)
+      .where(eq(guildConfigs.guildId, guildId));
+    return config;
   }
 
   async saveGuildConfig(insertConfig: InsertGuildConfig): Promise<GuildConfig> {
-    const id = this.currentId++;
-    const config: GuildConfig = {
-      id,
-      guildId: insertConfig.guildId,
-      firstLadyRoleId: insertConfig.firstLadyRoleId ?? null,
-      antiBanRoleId: insertConfig.antiBanRoleId ?? null,
-      fourUnitRoleId: insertConfig.fourUnitRoleId ?? null,
-      roleLimits: insertConfig.roleLimits ?? [],
-      allowedRoles: insertConfig.allowedRoles ?? [],
-      fourUnitAllowedRoles: insertConfig.fourUnitAllowedRoles ?? [],
-    };
-    this.configs.set(config.guildId, config);
+    const [config] = await db
+      .insert(guildConfigs)
+      .values(insertConfig)
+      .returning();
     return config;
   }
 
@@ -41,20 +29,18 @@ export class MemStorage implements IStorage {
     guildId: string,
     updates: Partial<InsertGuildConfig>,
   ): Promise<GuildConfig> {
-    const existing = await this.getGuildConfig(guildId);
-    if (!existing) {
+    const [updated] = await db
+      .update(guildConfigs)
+      .set(updates)
+      .where(eq(guildConfigs.guildId, guildId))
+      .returning();
+
+    if (!updated) {
       throw new Error("Guild config not found");
     }
 
-    const updated: GuildConfig = {
-      ...existing,
-      ...updates,
-      guildId: existing.guildId, // Ensure guildId is not overwritten
-    };
-
-    this.configs.set(guildId, updated);
     return updated;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

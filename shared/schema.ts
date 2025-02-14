@@ -32,10 +32,10 @@ export type GuildConfig = typeof guildConfigs.$inferSelect;
 // Helper functions para gerenciar limites de cargos
 export function getRoleLimit(config: GuildConfig, roleId: string): number {
   if (!config.roleLimits) return 5; // Default limit
-
+  
   const limitStr = config.roleLimits.find(limit => limit.startsWith(`${roleId}:`));
   if (!limitStr) return 5;
-
+  
   const [, limit] = limitStr.split(':');
   return parseInt(limit) || 5;
 }
