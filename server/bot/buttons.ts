@@ -1,4 +1,4 @@
-import { ButtonInteraction, EmbedBuilder, PermissionsBitField } from "discord.js";
+import { ButtonInteraction, EmbedBuilder, PermissionsBitField, Message, TextChannel, Collection } from "discord.js";
 import { storage } from "../storage";
 import { log } from "../vite";
 
@@ -29,7 +29,7 @@ export async function handleButtons(interaction: ButtonInteraction) {
     if (!config) {
       await interaction.reply({
         content: "Configuração não encontrada! Use hit!panela config primeiro.",
-        ephemeral: true,
+        ephemeral: true
       });
       return;
     }
@@ -70,8 +70,18 @@ export async function handleButtons(interaction: ButtonInteraction) {
           ephemeral: true
         });
 
-        const filter = (m: any) => m.author.id === interaction.user.id && m.mentions.users.size > 0;
-        const collector = interaction.channel?.createMessageCollector({
+        const filter = (m: Message) => m.author.id === interaction.user.id && m.mentions.users.size > 0;
+
+        // Verifica se o canal é um TextChannel
+        if (!(interaction.channel instanceof TextChannel)) {
+          await interaction.followUp({
+            content: "Este comando só pode ser usado em canais de texto!",
+            ephemeral: true
+          });
+          return;
+        }
+
+        const collector = interaction.channel.createMessageCollector({
           filter,
           time: 30000,
           max: 1
@@ -85,7 +95,7 @@ export async function handleButtons(interaction: ButtonInteraction) {
           return;
         }
 
-        collector.on('collect', async (m) => {
+        collector.on('collect', async (m: Message) => {
           const targetUser = m.mentions.users.first();
           if (targetUser) {
             await toggleRole(interaction, buttonConfig.roleId!, buttonConfig.name, targetUser.id);
@@ -95,7 +105,7 @@ export async function handleButtons(interaction: ButtonInteraction) {
           }
         });
 
-        collector.on('end', collected => {
+        collector.on('end', (collected: Collection<string, Message>) => {
           if (collected.size === 0) {
             interaction.followUp({
               content: "Tempo esgotado. Por favor, tente novamente.",
@@ -219,10 +229,26 @@ async function toggleRole(interaction: ButtonInteraction, roleId: string, roleNa
 
 async function showMembers(interaction: ButtonInteraction) {
   try {
-    if (!interaction.guild) return;
+    log(`Iniciando função showMembers para servidor ${interaction.guildId}`, "discord");
+
+    if (!interaction.guild) {
+      await interaction.reply({
+        content: "Erro: Servidor não encontrado!",
+        ephemeral: true
+      });
+      return;
+    }
 
     const config = await storage.getGuildConfig(interaction.guildId!);
-    if (!config) return;
+    if (!config) {
+      await interaction.reply({
+        content: "Configuração não encontrada! Use hit!panela config primeiro.",
+        ephemeral: true
+      });
+      return;
+    }
+
+    log(`Buscando informações dos cargos para o servidor ${interaction.guildId}`, "discord");
 
     // Get roles and their members
     const roles = await interaction.guild.roles.fetch();
@@ -234,10 +260,21 @@ async function showMembers(interaction: ButtonInteraction) {
     const antiBanCount = antiBanRole?.members.size || 0;
     const fourUnitCount = fourUnitRole?.members.size || 0;
 
+    log(`Contagem de membros - Primeira Dama: ${firstLadyCount}, Antiban: ${antiBanCount}, 4un: ${fourUnitCount}`, "discord");
+
+    // Função auxiliar para formatar a lista de membros
+    const formatMembersList = (role: any) => {
+      if (!role) return "• Nenhum membro";
+      const members = Array.from(role.members.values())
+        .map(m => `• ${m.user.username}`)
+        .join("\n");
+      return members || "• Nenhum membro";
+    };
+
     // Get members for each role
-    const firstLadyMembers = firstLadyRole ? Array.from(firstLadyRole.members.values()).map(m => m.user.username).join(", ") : "Nenhum membro";
-    const antiBanMembers = antiBanRole ? Array.from(antiBanRole.members.values()).map(m => m.user.username).join(", ") : "Nenhum membro";
-    const fourUnitMembers = fourUnitRole ? Array.from(fourUnitRole.members.values()).map(m => m.user.username).join(", ") : "Nenhum membro";
+    const firstLadyMembers = formatMembersList(firstLadyRole);
+    const antiBanMembers = formatMembersList(antiBanRole);
+    const fourUnitMembers = formatMembersList(fourUnitRole);
 
     const embed = new EmbedBuilder()
       .setTitle("👥 Membros da Panela")
@@ -249,17 +286,45 @@ async function showMembers(interaction: ButtonInteraction) {
       .setColor("#2F3136")
       .setTimestamp();
 
-    await interaction.reply({
-      embeds: [embed],
-      ephemeral: true,
-    });
+    log(`Preparando para enviar embed com informações dos membros`, "discord");
+
+    try {
+      // Tenta primeiro responder normalmente
+      await interaction.reply({
+        embeds: [embed],
+        ephemeral: true
+      });
+      log(`Embed enviado com sucesso via reply`, "discord");
+    } catch (error: any) {
+      // Se a interação já foi respondida, usa followUp
+      if (error.code === 40060) {
+        await interaction.followUp({
+          embeds: [embed],
+          ephemeral: true
+        });
+        log(`Embed enviado com sucesso via followUp`, "discord");
+      } else {
+        throw error;
+      }
+    }
   } catch (error) {
     log(`Erro ao mostrar membros: ${error}`, "discord");
-    if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({
-        content: "Erro ao mostrar membros! Tente novamente.",
-        ephemeral: true,
-      });
+
+    const errorMessage = "Erro ao mostrar membros! Tente novamente.";
+    try {
+      if (!interaction.replied) {
+        await interaction.reply({
+          content: errorMessage,
+          ephemeral: true
+        });
+      } else {
+        await interaction.followUp({
+          content: errorMessage,
+          ephemeral: true
+        });
+      }
+    } catch (e) {
+      log(`Erro ao enviar mensagem de erro: ${e}`, "discord");
     }
   }
 }
