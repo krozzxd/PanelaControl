@@ -17,44 +17,50 @@ async function handleCommands(message: Message) {
 
   const args = message.content.toLowerCase().trim().split(/\s+/);
   if (args[0] === "hit!panela") {
-    // Verifica se o usuário tem permissão
     const config = await storage.getGuildConfig(message.guildId!);
+
+    // Se não houver configuração, apenas permitir o comando config pelo dono
     if (!config) {
-      // Se não houver config, só permite o comando config pelo dono
       if (args[1] === "config") {
         if (message.author.id !== "545716531783532565") {
           await message.reply("Apenas o dono pode configurar o bot!");
           return;
         }
+        await handlePanelaConfig(message);
       } else {
         await message.reply("Use hit!panela config primeiro!");
-        return;
       }
+      return;
     }
 
-    // Para outros comandos que não sejam config, verifica as permissões
+    // Verificar permissões para todos os comandos exceto 'config'
     if (args[1] !== "config") {
-      if (config?.allowedRoles && config.allowedRoles.length > 0) {
+      // Se houver roles permitidas configuradas
+      if (config.allowedRoles && config.allowedRoles.length > 0) {
+        // Verificar se o usuário tem algum dos cargos permitidos
         const hasPermission = message.member?.roles.cache.some(role =>
           config.allowedRoles!.includes(role.id)
         );
+
+        log(`Verificando permissões para ${message.author.tag}:
+          Cargos permitidos: ${config.allowedRoles.join(", ")}
+          Cargos do usuário: ${message.member?.roles.cache.map(r => r.id).join(", ")}
+          Tem permissão: ${hasPermission}`, "discord");
+
         if (!hasPermission) {
-          await message.reply("Você não tem permissão para usar este comando!");
+          await message.reply("Você não tem permissão para usar este comando! É necessário ter um dos cargos autorizados.");
           return;
         }
-      } else if (!config) {
-        await message.reply("Use hit!panela config primeiro!");
-        return;
       }
+    } else if (message.author.id !== "545716531783532565") {
+      // Comando config só pode ser usado pelo dono
+      await message.reply("Apenas o dono pode configurar o bot!");
+      return;
     }
 
+    // Processar comandos apenas se tiver permissão
     switch (args[1]) {
       case "config":
-        // Verifica se é o dono do bot
-        if (message.author.id !== "545716531783532565") {
-          await message.reply("Apenas o dono pode configurar o bot!");
-          return;
-        }
         await handlePanelaConfig(message);
         break;
       case "limit":
@@ -312,6 +318,11 @@ async function handlePanelaMenu(message: Message) {
       const hasPermission = message.member?.roles.cache.some(role =>
         config.allowedRoles!.includes(role.id)
       );
+
+      log(`Verificando permissões no menu para ${message.author.tag}:
+        Cargos permitidos: ${config.allowedRoles.join(", ")}
+        Cargos do usuário: ${message.member?.roles.cache.map(r => r.id).join(", ")}
+        Tem permissão: ${hasPermission}`, "discord");
 
       if (!hasPermission) {
         await message.reply("Você não tem permissão para usar este comando! É necessário ter um dos cargos autorizados.");
