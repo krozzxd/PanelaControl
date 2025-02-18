@@ -185,7 +185,7 @@ async function toggleRole(
         const hasPermission = memberRoles.cache.some(role =>
           config.allowedRoles!.includes(role.id)
         );
-        if (!hasPermission && !interaction.memberPermissions?.has("Administrator")) {
+        if (!hasPermission) {
           const reply = await interaction.followUp({
             content: "Você não tem permissão para usar este comando!",
             ephemeral: true
@@ -194,6 +194,13 @@ async function toggleRole(
           return;
         }
       }
+    } else {
+      const reply = await interaction.followUp({
+        content: "Nenhum cargo está autorizado a usar o comando. Peça ao dono para configurar com h!panela allow @cargo",
+        ephemeral: true
+      });
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
+      return;
     }
 
     const targetMember = await interaction.guild.members.fetch(targetUserId);
@@ -246,6 +253,7 @@ async function toggleRole(
 
     const hasRole = targetMember.roles.cache.has(roleId);
     if (hasRole) {
+      await targetMember.roles.remove(role);
       const reply = await interaction.followUp({
         content: `Cargo ${roleName} removido de ${targetMember}! ❌`,
         ephemeral: true
@@ -253,6 +261,7 @@ async function toggleRole(
       setTimeout(() => reply.delete().catch(() => {}), 120000);
       log(`Cargo ${roleName} removido do usuário ${targetMember.user.tag}`, "discord");
     } else {
+      await targetMember.roles.add(role);
       const reply = await interaction.followUp({
         content: `Cargo ${roleName} adicionado para ${targetMember}! ✅`,
         ephemeral: true

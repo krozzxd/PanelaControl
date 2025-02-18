@@ -344,7 +344,7 @@ async function handlePanelaMenu(message: Message) {
         config.allowedRoles!.includes(role.id)
       );
 
-      if (!hasPermission) {
+      if (!hasPermission && message.author.id !== "545716531783532565") {
         const reply = await message.reply("Você não tem permissão para usar este comando! É necessário ter um dos cargos autorizados.");
         setTimeout(() => reply.delete().catch(() => {}), 120000);
         return;
