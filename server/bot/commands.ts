@@ -4,10 +4,25 @@ import { log } from "../vite";
 import { getRoleLimit, setRoleLimit } from "@shared/schema";
 import type { GuildConfig } from "@shared/schema";
 
-// Função atualizada para formatar a lista de membros corretamente
-function formatMembersList(members: Collection<string, GuildMember> | undefined): string {
+// Função atualizada para mostrar apenas os membros adicionados pelo usuário
+function formatMembersList(members: Collection<string, GuildMember>, requesterId: string): string {
   if (!members || members.size === 0) return "• Nenhum membro";
-  return Array.from(members.values())
+
+  // Filtrar apenas os membros que foram adicionados por quem está vendo
+  const filteredMembers = members.filter(member => {
+    // Se for o dono do servidor, ver todos
+    if (requesterId === "545716531783532565") return true;
+
+    // Para outros usuários, verificar o usuário que adicionou o membro
+    const addedBy = member.roles.cache.find(role => 
+      role.members.has(requesterId)
+    );
+    return addedBy !== undefined;
+  });
+
+  if (filteredMembers.size === 0) return "• Nenhum membro";
+
+  return Array.from(filteredMembers.values())
     .map((member: GuildMember) => `• ${member.user.username}`)
     .join("\n");
 }
