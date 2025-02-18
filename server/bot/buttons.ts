@@ -21,6 +21,24 @@ export async function handleButtons(interaction: ButtonInteraction) {
       return;
     }
 
+    // Verificar permissões do usuário
+    if (config.allowedRoles && config.allowedRoles.length > 0) {
+      const memberRoles = interaction.member!.roles as GuildMemberRoleManager;
+      if (interaction.user.id !== "545716531783532565") {
+        const hasPermission = memberRoles.cache.some(role =>
+          config.allowedRoles!.includes(role.id)
+        );
+        if (!hasPermission) {
+          const reply = await interaction.followUp({
+            content: "Você não tem permissão para usar este comando!",
+            ephemeral: true
+          });
+          setTimeout(() => reply.delete().catch(() => {}), 120000);
+          return;
+        }
+      }
+    }
+
     switch (interaction.customId) {
       case "primeira-dama":
       case "antiban":
@@ -125,6 +143,16 @@ export async function handleButtons(interaction: ButtonInteraction) {
 
       case "fechar": {
         try {
+          if (interaction.message.interaction?.user.id !== interaction.user.id &&
+              interaction.user.id !== "545716531783532565") {
+            const reply = await interaction.followUp({
+              content: "Apenas quem criou o menu pode fechá-lo!",
+              ephemeral: true
+            });
+            setTimeout(() => reply.delete().catch(() => {}), 120000);
+            return;
+          }
+
           await interaction.message.delete();
           log(`Menu fechado e apagado por ${interaction.user.tag}`, "discord");
         } catch (error) {
@@ -168,6 +196,7 @@ async function toggleRole(
       return;
     }
 
+    // Verificar se o usuário que clicou tem permissão
     const config = await storage.getGuildConfig(interaction.guildId!);
     if (!config) {
       const reply = await interaction.followUp({
@@ -178,10 +207,10 @@ async function toggleRole(
       return;
     }
 
+    // Verificar permissões do usuário que está tentando adicionar/remover
     if (config.allowedRoles && config.allowedRoles.length > 0) {
       const memberRoles = interaction.member!.roles as GuildMemberRoleManager;
-      // Se for o dono, ignorar verificação de cargos
-      if (interaction.user.id !== "545716531783532565") {
+      if (interaction.user.id !== "545716531783532565") { // Se não for o dono
         const hasPermission = memberRoles.cache.some(role =>
           config.allowedRoles!.includes(role.id)
         );
@@ -254,6 +283,16 @@ async function toggleRole(
       }
     }
 
+    // Verificar se quem está tentando adicionar/remover tem o cargo necessário
+    if (!interaction.member?.roles.cache.has(roleId) && interaction.user.id !== "545716531783532565") {
+      const reply = await interaction.followUp({
+        content: `Você precisa ter o cargo ${roleName} para poder adicioná-lo a outros membros!`,
+        ephemeral: true
+      });
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
+      return;
+    }
+
     const roleMembers = role.members.size;
     const roleLimit = getRoleLimit(config, roleId);
 
@@ -274,7 +313,7 @@ async function toggleRole(
         ephemeral: true
       });
       setTimeout(() => reply.delete().catch(() => {}), 120000);
-      log(`Cargo ${roleName} removido do usuário ${targetMember.user.tag}`, "discord");
+      log(`Cargo ${roleName} removido do usuário ${targetMember.user.tag} por ${interaction.user.tag}`, "discord");
     } else {
       await targetMember.roles.add(role);
       const reply = await interaction.followUp({
@@ -282,7 +321,7 @@ async function toggleRole(
         ephemeral: true
       });
       setTimeout(() => reply.delete().catch(() => {}), 120000);
-      log(`Cargo ${roleName} adicionado ao usuário ${targetMember.user.tag}`, "discord");
+      log(`Cargo ${roleName} adicionado ao usuário ${targetMember.user.tag} por ${interaction.user.tag}`, "discord");
     }
   } catch (error) {
     log(`Erro ao modificar cargo ${roleName}: ${error}`, "discord");
@@ -294,9 +333,24 @@ async function toggleRole(
   }
 }
 
-function formatMembersList(members: Collection<string, GuildMember>): string {
+function formatMembersList(members: Collection<string, GuildMember>, requesterRoles: Collection<string, any>): string {
   if (!members || members.size === 0) return "• Nenhum membro";
-  return Array.from(members.values())
+
+  // Filtrar apenas os membros que foram adicionados por quem está vendo
+  const filteredMembers = members.filter(member => {
+    // Se o membro foi adicionado pelo dono, mostrar para todos
+    const addedByOwner = member.roles.cache.find(role => 
+      role.members.has("545716531783532565")
+    );
+    if (addedByOwner) return true;
+
+    // Se não, só mostrar se foi adicionado por alguém com o mesmo cargo
+    return member.roles.cache.some(role => requesterRoles.has(role.id));
+  });
+
+  if (filteredMembers.size === 0) return "• Nenhum membro";
+
+  return Array.from(filteredMembers.values())
     .map((member: GuildMember) => `• ${member.user.username}`)
     .join("\n");
 }
@@ -322,7 +376,9 @@ async function createMembersEmbed(interaction: ButtonInteraction): Promise<Embed
     throw new Error("Um ou mais cargos configurados não existem mais neste servidor");
   }
 
-  // Filtrar membros apenas deste servidor
+  const memberRoles = (interaction.member?.roles as GuildMemberRoleManager).cache;
+
+  // Filtrar membros apenas deste servidor e que foram adicionados pelo usuário que está vendo
   const firstLadyMembers = firstLadyRole.members.filter(member => member.guild.id === interaction.guildId);
   const antiBanMembers = antiBanRole.members.filter(member => member.guild.id === interaction.guildId);
   const usMembers = usRole.members.filter(member => member.guild.id === interaction.guildId);
@@ -338,9 +394,9 @@ async function createMembersEmbed(interaction: ButtonInteraction): Promise<Embed
   return new EmbedBuilder()
     .setTitle("👥 Membros da Panela")
     .setDescription(
-      `<:anel:1337954327226093598> **Primeira Dama** (${firstLadyCount}/${firstLadyLimit})\n${formatMembersList(firstLadyMembers)}\n\n` +
-      `<:martelo:1337267926452932628> **Antiban** (${antiBanCount}/${antiBanLimit})\n${formatMembersList(antiBanMembers)}\n\n` +
-      `<:cor:1337925018872709230> **Us** (${usCount}/${usLimit})\n${formatMembersList(usMembers)}`
+      `<:anel:1337954327226093598> **Primeira Dama** (${firstLadyCount}/${firstLadyLimit})\n${formatMembersList(firstLadyMembers, memberRoles)}\n\n` +
+      `<:martelo:1337267926452932628> **Antiban** (${antiBanCount}/${antiBanLimit})\n${formatMembersList(antiBanMembers, memberRoles)}\n\n` +
+      `<:cor:1337925018872709230> **Us** (${usCount}/${usLimit})\n${formatMembersList(usMembers, memberRoles)}`
     )
     .setColor("#2F3136")
     .setTimestamp();
