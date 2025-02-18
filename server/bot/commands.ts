@@ -44,16 +44,20 @@ async function handlePanelaAllow(message: Message, args: string[]) {
       return;
     }
 
-    const allowedRoles = Array.from(message.mentions.roles.values()).map(role => role.id);
+    // Manter os cargos existentes e adicionar os novos
+    const existingRoles = config.allowedRoles || [];
+    const newRoles = Array.from(message.mentions.roles.values()).map(role => role.id);
+    const allRoles = [...new Set([...existingRoles, ...newRoles])]; // Remove duplicates
 
     log(`Atualizando cargos permitidos:
-      Cargos antigos: ${config.allowedRoles?.join(", ") || "nenhum"}
-      Novos cargos: ${allowedRoles.join(", ")}`, "discord");
+      Cargos antigos: ${existingRoles.join(", ") || "nenhum"}
+      Novos cargos: ${newRoles.join(", ")}
+      Total de cargos: ${allRoles.join(", ")}`, "discord");
 
-    await storage.updateGuildConfig(message.guildId!, { allowedRoles });
+    await storage.updateGuildConfig(message.guildId!, { allowedRoles: allRoles });
 
     const rolesList = message.mentions.roles.map(role => role.name).join(", ");
-    const reply = await message.reply(`Cargos autorizados atualizados: ${rolesList}`);
+    const reply = await message.reply(`Cargos autorizados adicionados: ${rolesList}`);
     setTimeout(() => reply.delete().catch(() => {}), 60000);
 
     log(`Cargos autorizados atualizados por ${message.author.tag}: ${rolesList}`, "discord");

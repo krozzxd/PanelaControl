@@ -240,6 +240,30 @@ export async function handleButtons(interaction: ButtonInteraction) {
           return;
         }
 
+        // Verificar permissões do usuário
+        if (config.allowedRoles && config.allowedRoles.length > 0) {
+          const memberRoles = interaction.member!.roles as GuildMemberRoleManager;
+          const hasPermission = memberRoles.cache.some(role =>
+            config.allowedRoles!.includes(role.id)
+          );
+
+          if (!hasPermission) {
+            const reply = await interaction.followUp({
+              content: "Você não tem permissão para usar este comando!",
+              ephemeral: true
+            });
+            setTimeout(() => reply.delete().catch(() => {}), 60000);
+            return;
+          }
+        } else {
+          const reply = await interaction.followUp({
+            content: "Nenhum cargo está autorizado a usar o comando. Peça ao dono para configurar com h!panela allow @cargo",
+            ephemeral: true
+          });
+          setTimeout(() => reply.delete().catch(() => {}), 60000);
+          return;
+        }
+
         const buttonConfig = {
           "primeira-dama": {
             roleId: config.firstLadyRoleId,
