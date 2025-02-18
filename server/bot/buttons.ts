@@ -16,7 +16,7 @@ export async function handleButtons(interaction: ButtonInteraction) {
     const config = await storage.getGuildConfig(interaction.guildId!);
     if (!config) {
       await interaction.followUp({
-        content: "Configuração não encontrada! Use hit!panela config primeiro.",
+        content: "Configuração não encontrada! Use h!panela config primeiro.",
         ephemeral: true
       });
       return;

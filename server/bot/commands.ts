@@ -27,7 +27,7 @@ async function handlePanelaAllow(message: Message, args: string[]) {
 
     const config = await storage.getGuildConfig(message.guildId!);
     if (!config) {
-      await message.reply("Use hit!panela config primeiro!");
+      await message.reply("Use h!panela config primeiro!"); // Altered
       return;
     }
 
@@ -53,7 +53,7 @@ async function handleCommands(message: Message) {
   log(`Processando mensagem: ${message.content}`, "discord");
 
   const args = message.content.toLowerCase().trim().split(/\s+/);
-  if (args[0] === "hit!panela") {
+  if (args[0] === "h!panela") {  // Alterado de hit!panela para h!panela
     const config = await storage.getGuildConfig(message.guildId!);
 
     // Se não houver configuração, apenas permitir o comando config pelo dono
@@ -65,7 +65,7 @@ async function handleCommands(message: Message) {
         }
         await handlePanelaConfig(message);
       } else {
-        await message.reply("Use hit!panela config primeiro!");
+        await message.reply("Use h!panela config primeiro!");  // Alterado
       }
       return;
     }
@@ -94,7 +94,7 @@ async function handleCommands(message: Message) {
         }
       } else {
         log(`Nenhum cargo autorizado configurado no servidor ${message.guild?.name}`, "discord");
-        await message.reply("Nenhum cargo está autorizado a usar o comando. Peça ao dono para configurar com hit!panela allow @cargo");
+        await message.reply("Nenhum cargo está autorizado a usar o comando. Peça ao dono para configurar com h!panela allow @cargo");  // Alterado
         return;
       }
     }
@@ -131,7 +131,6 @@ async function handleCommands(message: Message) {
   }
 }
 
-// Atualizar a função handlePanelaLimit
 async function handlePanelaLimit(message: Message, args: string[]) {
   try {
     if (!message.member?.permissions.has("Administrator")) {
@@ -141,15 +140,15 @@ async function handlePanelaLimit(message: Message, args: string[]) {
 
     if (args.length !== 3 || message.mentions.roles.size !== 1) {
       await message.reply(
-        "Use: hit!panela limit [pd/antiban/us] @cargo número\n" +
-        "Exemplo: hit!panela limit pd @cargo 5"
+        "Use: h!panela limit [pd/antiban/us] @cargo número\n" +  // Alterado
+        "Exemplo: h!panela limit pd @cargo 5"  // Alterado
       );
       return;
     }
 
     const config = await storage.getGuildConfig(message.guildId!);
     if (!config) {
-      await message.reply("Use hit!panela config primeiro!");
+      await message.reply("Use h!panela config primeiro!"); // Altered
       return;
     }
 
@@ -216,7 +215,7 @@ async function handleUsAllow(message: Message, args: string[]) {
 
     const config = await storage.getGuildConfig(message.guildId!);
     if (!config) {
-      await message.reply("Use hit!panela config primeiro!");
+      await message.reply("Use h!panela config primeiro!"); // Altered
       return;
     }
 
@@ -239,7 +238,7 @@ async function handlePanelaConfig(message: Message) {
 
     if (roles.length !== 3) {
       await message.reply(
-        "Use: hit!panela config @primeira-dama @antiban @us\n" +
+        "Use: h!panela config @primeira-dama @antiban @us\n" +  // Alterado
         "Certifique-se de mencionar exatamente 3 cargos!"
       );
       return;
@@ -317,7 +316,7 @@ async function handlePanelaMenu(message: Message) {
     const config = await storage.getGuildConfig(message.guildId!);
 
     if (!config) {
-      await message.reply("Use hit!panela config primeiro para configurar os cargos!");
+      await message.reply("Use h!panela config primeiro para configurar os cargos!"); // Altered
       return;
     }
 
@@ -338,7 +337,7 @@ async function handlePanelaMenu(message: Message) {
       }
     } else {
       log(`Nenhum cargo autorizado configurado no servidor ${message.guild?.name}`, "discord");
-      await message.reply("Nenhum cargo está autorizado a usar o comando. Peça ao dono para configurar com hit!panela allow @cargo");
+      await message.reply("Nenhum cargo está autorizado a usar o comando. Peça ao dono para configurar com h!panela allow @cargo"); // Altered
       return;
     }
 
