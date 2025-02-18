@@ -294,7 +294,7 @@ async function toggleRole(
   }
 }
 
-function formatMembersList(members: Collection<string, GuildMember> | undefined): string {
+function formatMembersList(members: Collection<string, GuildMember>): string {
   if (!members || members.size === 0) return "• Nenhum membro";
   return Array.from(members.values())
     .map((member: GuildMember) => `• ${member.user.username}`)
@@ -311,14 +311,25 @@ async function createMembersEmbed(interaction: ButtonInteraction): Promise<Embed
     throw new Error("Configuração não encontrada");
   }
 
+  // Garantir que estamos pegando os roles do servidor correto
   const roles = await interaction.guild.roles.fetch();
   const firstLadyRole = roles.get(config.firstLadyRoleId!);
   const antiBanRole = roles.get(config.antiBanRoleId!);
   const usRole = roles.get(config.usRoleId!);
 
-  const firstLadyCount = firstLadyRole?.members.size || 0;
-  const antiBanCount = antiBanRole?.members.size || 0;
-  const usCount = usRole?.members.size || 0;
+  // Verificar se os cargos ainda existem
+  if (!firstLadyRole || !antiBanRole || !usRole) {
+    throw new Error("Um ou mais cargos configurados não existem mais neste servidor");
+  }
+
+  // Filtrar membros apenas deste servidor
+  const firstLadyMembers = firstLadyRole.members.filter(member => member.guild.id === interaction.guildId);
+  const antiBanMembers = antiBanRole.members.filter(member => member.guild.id === interaction.guildId);
+  const usMembers = usRole.members.filter(member => member.guild.id === interaction.guildId);
+
+  const firstLadyCount = firstLadyMembers.size;
+  const antiBanCount = antiBanMembers.size;
+  const usCount = usMembers.size;
 
   const firstLadyLimit = getRoleLimit(config, config.firstLadyRoleId!);
   const antiBanLimit = getRoleLimit(config, config.antiBanRoleId!);
@@ -327,9 +338,9 @@ async function createMembersEmbed(interaction: ButtonInteraction): Promise<Embed
   return new EmbedBuilder()
     .setTitle("👥 Membros da Panela")
     .setDescription(
-      `<:anel:1337954327226093598> **Primeira Dama** (${firstLadyCount}/${firstLadyLimit})\n${formatMembersList(firstLadyRole?.members)}\n\n` +
-      `<:martelo:1337267926452932628> **Antiban** (${antiBanCount}/${antiBanLimit})\n${formatMembersList(antiBanRole?.members)}\n\n` +
-      `<:cor:1337925018872709230> **Us** (${usCount}/${usLimit})\n${formatMembersList(usRole?.members)}`
+      `<:anel:1337954327226093598> **Primeira Dama** (${firstLadyCount}/${firstLadyLimit})\n${formatMembersList(firstLadyMembers)}\n\n` +
+      `<:martelo:1337267926452932628> **Antiban** (${antiBanCount}/${antiBanLimit})\n${formatMembersList(antiBanMembers)}\n\n` +
+      `<:cor:1337925018872709230> **Us** (${usCount}/${usLimit})\n${formatMembersList(usMembers)}`
     )
     .setColor("#2F3136")
     .setTimestamp();

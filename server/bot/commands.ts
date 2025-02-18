@@ -361,7 +361,14 @@ async function handlePanelaMenu(message: Message) {
       return;
     }
 
-    const config = await storage.getGuildConfig(message.guildId!);
+    // Verificar se estamos no servidor correto
+    if (!message.guildId) {
+      const reply = await message.reply("Erro: Não foi possível identificar o servidor!");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
+      return;
+    }
+
+    const config = await storage.getGuildConfig(message.guildId);
 
     if (!config) {
       const reply = await message.reply("Use h!panela config primeiro para configurar os cargos!");
@@ -385,14 +392,27 @@ async function handlePanelaMenu(message: Message) {
       return;
     }
 
+    // Garantir que estamos pegando os cargos do servidor correto
     const roles = await message.guild.roles.fetch();
     const firstLadyRole = roles.get(config.firstLadyRoleId!);
     const antiBanRole = roles.get(config.antiBanRoleId!);
     const usRole = roles.get(config.usRoleId!);
 
-    const firstLadyCount = firstLadyRole?.members.size || 0;
-    const antiBanCount = antiBanRole?.members.size || 0;
-    const usCount = usRole?.members.size || 0;
+    // Verificar se os cargos existem neste servidor
+    if (!firstLadyRole || !antiBanRole || !usRole) {
+      const reply = await message.reply("Erro: Um ou mais cargos configurados não existem mais neste servidor. Use h!panela config para reconfigurar.");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
+      return;
+    }
+
+    // Pegar apenas os membros deste servidor específico
+    const firstLadyMembers = firstLadyRole.members.filter(member => member.guild.id === message.guildId);
+    const antiBanMembers = antiBanRole.members.filter(member => member.guild.id === message.guildId);
+    const usMembers = usRole.members.filter(member => member.guild.id === message.guildId);
+
+    const firstLadyCount = firstLadyMembers.size;
+    const antiBanCount = antiBanMembers.size;
+    const usCount = usMembers.size;
 
     const firstLadyLimit = getRoleLimit(config, config.firstLadyRoleId!);
     const antiBanLimit = getRoleLimit(config, config.antiBanRoleId!);
@@ -410,7 +430,7 @@ async function handlePanelaMenu(message: Message) {
         `<:cor:1337925018872709230> **Us** (${usCount}/${usLimit})\n\n` +
         "💡 *Dica: Você tem 30 segundos para mencionar o usuário após clicar no botão.*"
       )
-      .setThumbnail(message.author.displayAvatarURL())
+      .setThumbnail(message.guild.iconURL() || message.author.displayAvatarURL())
       .setColor("#2F3136")
       .setTimestamp();
 
