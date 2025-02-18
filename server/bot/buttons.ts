@@ -10,12 +10,15 @@ const roleAssignmentCollectors = new Map();
 function formatMembersList(members: Collection<string, GuildMember>, requesterId: string): string {
   if (!members || members.size === 0) return "• Nenhum membro";
 
-  // Filtrar apenas os membros que foram adicionados por quem está vendo
-  const filteredMembers = members.filter(member => {
-    // Se for o dono do servidor, ver todos
-    if (requesterId === "545716531783532565") return true;
+  // Se for o dono do servidor, mostrar todos os membros
+  if (requesterId === "545716531783532565") {
+    return Array.from(members.values())
+      .map((member: GuildMember) => `• ${member.user.username}`)
+      .join("\n");
+  }
 
-    // Para outros usuários, verificar o usuário que adicionou o membro
+  // Para outros usuários, mostrar apenas os membros que eles adicionaram
+  const filteredMembers = members.filter(member => {
     const addedBy = member.roles.cache.find(role => 
       role.members.has(requesterId)
     );
@@ -126,7 +129,7 @@ async function toggleRole(
     const config = await storage.getGuildConfig(interaction.guildId!);
     if (!config) {
       const reply = await interaction.followUp({
-        content: "Configuração não encontrada!",
+        content: "Use h!panela config primeiro!",
         ephemeral: true
       });
       setTimeout(() => reply.delete().catch(() => {}), 120000);
@@ -173,8 +176,23 @@ async function toggleRole(
     const addedByUserId = getMemberAddedBy(config, roleId, targetMember.id);
 
     if (hasRole) {
-      // Só pode remover se foi quem adicionou ou se for o dono
-      if (addedByUserId !== interaction.user.id && interaction.user.id !== "545716531783532565") {
+      // Se for o dono, pode remover qualquer membro
+      if (interaction.user.id === "545716531783532565") {
+        await targetMember.roles.remove(role);
+        const updatedMemberAddedBy = removeMember(config, roleId, targetMember.id);
+        await storage.updateGuildConfig(interaction.guildId!, { memberAddedBy: updatedMemberAddedBy });
+
+        const reply = await interaction.followUp({
+          content: `Cargo ${roleName} removido de ${targetMember}!`,
+          ephemeral: true
+        });
+        setTimeout(() => reply.delete().catch(() => {}), 120000);
+        log(`Cargo ${roleName} removido do usuário ${targetMember.user.tag} por ${interaction.user.tag}`, "discord");
+        return;
+      }
+
+      // Para outros usuários, só pode remover se foi quem adicionou
+      if (addedByUserId !== interaction.user.id) {
         const reply = await interaction.followUp({
           content: "Você só pode remover membros que você mesmo adicionou!",
           ephemeral: true
@@ -195,11 +213,26 @@ async function toggleRole(
       setTimeout(() => reply.delete().catch(() => {}), 120000);
       log(`Cargo ${roleName} removido do usuário ${targetMember.user.tag} por ${interaction.user.tag}`, "discord");
     } else {
-      // Verificar limite individual
+      // Se for o dono, pode adicionar sem limite
+      if (interaction.user.id === "545716531783532565") {
+        await targetMember.roles.add(role);
+        const updatedMemberAddedBy = addMember(config, roleId, targetMember.id, interaction.user.id);
+        await storage.updateGuildConfig(interaction.guildId!, { memberAddedBy: updatedMemberAddedBy });
+
+        const reply = await interaction.followUp({
+          content: `Cargo ${roleName} adicionado para ${targetMember}!`,
+          ephemeral: true
+        });
+        setTimeout(() => reply.delete().catch(() => {}), 120000);
+        log(`Cargo ${roleName} adicionado ao usuário ${targetMember.user.tag} por ${interaction.user.tag}`, "discord");
+        return;
+      }
+
+      // Para outros usuários, verificar limite individual
       const userMembers = getMembersAddedByUser(config, roleId, interaction.user.id);
       const roleLimit = getRoleLimit(config, roleId);
 
-      if (userMembers.length >= roleLimit && interaction.user.id !== "545716531783532565") {
+      if (userMembers.length >= roleLimit) {
         const reply = await interaction.followUp({
           content: `Você já atingiu o limite de ${roleLimit} membros para o cargo ${roleName}!`,
           ephemeral: true
