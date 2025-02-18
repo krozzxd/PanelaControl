@@ -31,7 +31,7 @@ async function handlePanelaMenu(interaction: ButtonInteraction): Promise<void> {
         content: "Use h!panela config primeiro!",
         ephemeral: true
       });
-      setTimeout(() => reply.delete().catch(() => {}), 120000);
+      setTimeout(() => reply.delete().catch(() => {}), 60000); // Updated timeout
       return;
     }
 
@@ -46,7 +46,7 @@ async function handlePanelaMenu(interaction: ButtonInteraction): Promise<void> {
           content: "Você não tem permissão para usar este comando!",
           ephemeral: true
         });
-        setTimeout(() => reply.delete().catch(() => {}), 120000);
+        setTimeout(() => reply.delete().catch(() => {}), 60000); // Updated timeout
         return;
       }
     }
@@ -61,7 +61,7 @@ async function handlePanelaMenu(interaction: ButtonInteraction): Promise<void> {
         content: "Um ou mais cargos configurados não existem mais neste servidor.",
         ephemeral: true
       });
-      setTimeout(() => reply.delete().catch(() => {}), 120000);
+      setTimeout(() => reply.delete().catch(() => {}), 60000); // Updated timeout
       return;
     }
 
@@ -97,14 +97,14 @@ async function handlePanelaMenu(interaction: ButtonInteraction): Promise<void> {
       embeds: [embed],
       ephemeral: true
     });
-    setTimeout(() => reply.delete().catch(() => {}), 120000);
+    setTimeout(() => reply.delete().catch(() => {}), 60000); // Updated timeout
   } catch (error) {
     log(`Erro ao criar menu: ${error}`, "discord");
     const reply = await interaction.followUp({
       content: "Ocorreu um erro ao criar o menu. Tente novamente.",
       ephemeral: true
     });
-    setTimeout(() => reply.delete().catch(() => {}), 120000);
+    setTimeout(() => reply.delete().catch(() => {}), 60000); // Updated timeout
   }
 }
 
@@ -121,7 +121,7 @@ async function toggleRole(
         content: "Use h!panela config primeiro!",
         ephemeral: true
       });
-      setTimeout(() => reply.delete().catch(() => {}), 120000);
+      setTimeout(() => reply.delete().catch(() => {}), 60000); // Updated timeout
       return;
     }
 
@@ -131,7 +131,7 @@ async function toggleRole(
         content: "Usuário não encontrado no servidor!",
         ephemeral: true
       });
-      setTimeout(() => reply.delete().catch(() => {}), 120000);
+      setTimeout(() => reply.delete().catch(() => {}), 60000); // Updated timeout
       return;
     }
 
@@ -141,7 +141,7 @@ async function toggleRole(
         content: `Cargo ${roleName} não encontrado!`,
         ephemeral: true
       });
-      setTimeout(() => reply.delete().catch(() => {}), 120000);
+      setTimeout(() => reply.delete().catch(() => {}), 60000); // Updated timeout
       return;
     }
 
@@ -156,7 +156,7 @@ async function toggleRole(
           content: "Erro ao configurar permissões do cargo us.",
           ephemeral: true
         });
-        setTimeout(() => reply.delete().catch(() => {}), 120000);
+        setTimeout(() => reply.delete().catch(() => {}), 60000); // Updated timeout
         return;
       }
     }
@@ -171,7 +171,7 @@ async function toggleRole(
           content: "Você só pode remover membros que você mesmo adicionou!",
           ephemeral: true
         });
-        setTimeout(() => reply.delete().catch(() => {}), 120000);
+        setTimeout(() => reply.delete().catch(() => {}), 60000); // Updated timeout
         return;
       }
 
@@ -184,7 +184,7 @@ async function toggleRole(
         content: `Cargo ${roleName} removido de ${targetMember}!`,
         ephemeral: true
       });
-      setTimeout(() => reply.delete().catch(() => {}), 120000);
+      setTimeout(() => reply.delete().catch(() => {}), 60000); // Updated timeout
       log(`Cargo ${roleName} removido do usuário ${targetMember.user.tag} por ${interaction.user.tag}`, "discord");
     } else {
       // Verificar limite individual
@@ -196,7 +196,7 @@ async function toggleRole(
           content: `Você já atingiu o limite de ${roleLimit} membros para o cargo ${roleName}!`,
           ephemeral: true
         });
-        setTimeout(() => reply.delete().catch(() => {}), 120000);
+        setTimeout(() => reply.delete().catch(() => {}), 60000); // Updated timeout
         return;
       }
 
@@ -209,7 +209,7 @@ async function toggleRole(
         content: `Cargo ${roleName} adicionado para ${targetMember}!`,
         ephemeral: true
       });
-      setTimeout(() => reply.delete().catch(() => {}), 120000);
+      setTimeout(() => reply.delete().catch(() => {}), 60000); // Updated timeout
       log(`Cargo ${roleName} adicionado ao usuário ${targetMember.user.tag} por ${interaction.user.tag}`, "discord");
     }
   } catch (error) {
@@ -218,7 +218,7 @@ async function toggleRole(
       content: `Erro ao modificar o cargo ${roleName}. Por favor, tente novamente.`,
       ephemeral: true
     });
-    setTimeout(() => reply.delete().catch(() => {}), 120000);
+    setTimeout(() => reply.delete().catch(() => {}), 60000); // Updated timeout
   }
 }
 
@@ -236,7 +236,7 @@ export async function handleButtons(interaction: ButtonInteraction) {
             content: "Use h!panela config primeiro!",
             ephemeral: true
           });
-          setTimeout(() => reply.delete().catch(() => {}), 120000);
+          setTimeout(() => reply.delete().catch(() => {}), 60000);
           return;
         }
 
@@ -260,7 +260,7 @@ export async function handleButtons(interaction: ButtonInteraction) {
             content: `Cargo ${buttonConfig.name} não configurado!`,
             ephemeral: true
           });
-          setTimeout(() => reply.delete().catch(() => {}), 120000);
+          setTimeout(() => reply.delete().catch(() => {}), 60000);
           return;
         }
 
@@ -268,7 +268,7 @@ export async function handleButtons(interaction: ButtonInteraction) {
           content: `Mencione o usuário que receberá o cargo de ${buttonConfig.name}`,
           ephemeral: true
         });
-        setTimeout(() => reply.delete().catch(() => {}), 120000);
+        setTimeout(() => reply.delete().catch(() => {}), 60000);
 
         if (interaction.channel instanceof TextChannel) {
           const collectorKey = `${interaction.user.id}-${interaction.customId}`;
@@ -299,7 +299,7 @@ export async function handleButtons(interaction: ButtonInteraction) {
                 content: "Ocorreu um erro ao processar o cargo. Por favor, tente novamente.",
                 ephemeral: true
               });
-              setTimeout(() => errorReply.delete().catch(() => {}), 120000);
+              setTimeout(() => errorReply.delete().catch(() => {}), 60000);
             }
           });
 
@@ -310,7 +310,7 @@ export async function handleButtons(interaction: ButtonInteraction) {
                 content: "Tempo esgotado. Por favor, tente novamente.",
                 ephemeral: true
               }).then(reply => {
-                setTimeout(() => reply.delete().catch(() => {}), 120000);
+                setTimeout(() => reply.delete().catch(() => {}), 60000);
               });
             }
           });
@@ -322,30 +322,6 @@ export async function handleButtons(interaction: ButtonInteraction) {
         await handlePanelaMenu(interaction);
         break;
       }
-
-      case "fechar": {
-        try {
-          if (interaction.message.interaction?.user.id !== interaction.user.id) {
-            const reply = await interaction.followUp({
-              content: "Apenas quem criou o menu pode fechá-lo!",
-              ephemeral: true
-            });
-            setTimeout(() => reply.delete().catch(() => {}), 120000);
-            return;
-          }
-
-          await interaction.message.delete();
-          log(`Menu fechado e apagado por ${interaction.user.tag}`, "discord");
-        } catch (error) {
-          log(`Erro ao fechar menu: ${error}`, "discord");
-          const errorReply = await interaction.followUp({
-            content: "Erro ao fechar o menu. Por favor, tente novamente.",
-            ephemeral: true
-          });
-          setTimeout(() => errorReply.delete().catch(() => {}), 120000);
-        }
-        break;
-      }
     }
   } catch (error) {
     log(`Erro ao processar botão: ${error}`, "discord");
@@ -353,6 +329,6 @@ export async function handleButtons(interaction: ButtonInteraction) {
       content: "Ocorreu um erro ao processar o botão. Por favor, tente novamente.",
       ephemeral: true
     });
-    setTimeout(() => errorReply.delete().catch(() => {}), 120000);
+    setTimeout(() => errorReply.delete().catch(() => {}), 60000);
   }
 }
