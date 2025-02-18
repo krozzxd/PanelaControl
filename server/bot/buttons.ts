@@ -2,30 +2,20 @@ import { ButtonInteraction, EmbedBuilder, PermissionsBitField, Message, TextChan
 import { storage } from "../storage";
 import { log } from "../vite";
 import { getRoleLimit } from "@shared/schema";
-import type { GuildConfig } from "@shared/schema";
 
 // Map para armazenar coletores de atribuição de cargo ativos
 const roleAssignmentCollectors = new Map();
 
 export async function handleButtons(interaction: ButtonInteraction) {
   try {
-    // Verificar permissões do bot
-    if (!interaction.guild?.members.me?.permissions.has([
-      PermissionsBitField.Flags.ManageRoles,
-      PermissionsBitField.Flags.SendMessages,
-      PermissionsBitField.Flags.ViewChannel
-    ])) {
-      await interaction.reply({
-        content: "O bot não tem as permissões necessárias! Preciso das permissões: Gerenciar Cargos, Enviar Mensagens, Ver Canal",
-        ephemeral: true
-      });
-      return;
-    }
+    // Sempre deferir a interação primeiro, antes de qualquer outra operação
+    await interaction.deferUpdate();
+    log(`Interação inicial deferida: ${interaction.customId}`, "discord");
 
     // Verificar configuração do servidor
     const config = await storage.getGuildConfig(interaction.guildId!);
     if (!config) {
-      await interaction.reply({
+      await interaction.followUp({
         content: "Configuração não encontrada! Use hit!panela config primeiro.",
         ephemeral: true
       });
@@ -52,85 +42,78 @@ export async function handleButtons(interaction: ButtonInteraction) {
         }[interaction.customId];
 
         if (!buttonConfig.roleId) {
-          await interaction.reply({
+          await interaction.followUp({
             content: `Cargo ${buttonConfig.name} não configurado!`,
             ephemeral: true
           });
           return;
         }
 
-        // Verificar canal
-        if (!(interaction.channel instanceof TextChannel)) {
-          await interaction.reply({
-            content: "Este comando só pode ser usado em canais de texto!",
-            ephemeral: true
-          });
-          return;
-        }
-
-        // Primeiro, deferimos a interação original para manter o botão ativo
-        await interaction.deferReply({ ephemeral: true });
-
         // Enviar mensagem pedindo menção
-        const responseMessage = await interaction.editReply({
+        await interaction.followUp({
           content: `Mencione o usuário que receberá o cargo de ${buttonConfig.name}`,
+          ephemeral: true
         });
 
-        const collectorKey = `${interaction.user.id}-${interaction.customId}`;
-        if (roleAssignmentCollectors.has(collectorKey)) {
-          roleAssignmentCollectors.get(collectorKey).stop();
-        }
+        // Configurar coletor
+        if (interaction.channel instanceof TextChannel) {
+          const collectorKey = `${interaction.user.id}-${interaction.customId}`;
+          if (roleAssignmentCollectors.has(collectorKey)) {
+            roleAssignmentCollectors.get(collectorKey).stop();
+          }
 
-        const collector = interaction.channel.createMessageCollector({
-          filter: (m: Message) => m.author.id === interaction.user.id && m.mentions.users.size > 0,
-          time: 30000,
-          max: 1
-        });
+          const collector = interaction.channel.createMessageCollector({
+            filter: (m: Message) => m.author.id === interaction.user.id && m.mentions.users.size > 0,
+            time: 30000,
+            max: 1
+          });
 
-        roleAssignmentCollectors.set(collectorKey, collector);
+          roleAssignmentCollectors.set(collectorKey, collector);
 
-        collector.on('collect', async (m: Message) => {
-          const targetUser = m.mentions.users.first();
-          if (targetUser) {
+          collector.on('collect', async (m: Message) => {
             try {
-              await toggleRole(interaction, buttonConfig.roleId!, buttonConfig.name, targetUser.id);
-              await m.delete().catch(() => {
-                log(`Não foi possível deletar a mensagem de menção`, "discord");
-              });
+              const targetUser = m.mentions.users.first();
+              if (targetUser) {
+                await toggleRole(interaction, buttonConfig.roleId!, buttonConfig.name, targetUser.id);
+                await m.delete().catch(() => {
+                  log(`Não foi possível deletar a mensagem de menção`, "discord");
+                });
+              }
             } catch (error) {
               log(`Erro ao processar toggle role: ${error}`, "discord");
               await interaction.followUp({
                 content: "Ocorreu um erro ao processar o cargo. Por favor, tente novamente.",
                 ephemeral: true
-              }).catch(() => {});
+              });
             }
-          }
-        });
+          });
 
-        collector.on('end', (collected, reason) => {
-          roleAssignmentCollectors.delete(collectorKey);
-          if (collected.size === 0 && reason === 'time') {
-            interaction.editReply({
-              content: "Tempo esgotado. Por favor, tente novamente.",
-            }).catch(() => {});
-          }
-        });
+          collector.on('end', (collected, reason) => {
+            roleAssignmentCollectors.delete(collectorKey);
+            if (collected.size === 0 && reason === 'time') {
+              interaction.followUp({
+                content: "Tempo esgotado. Por favor, tente novamente.",
+                ephemeral: true
+              });
+            }
+          });
+        }
         break;
       }
 
       case "ver-membros": {
-        // Deferimos a interação para manter o botão ativo
-        await interaction.deferReply({ ephemeral: true });
-
         try {
-          log(`Gerando embed de membros para ${interaction.guild.name}`, "discord");
           const embed = await createMembersEmbed(interaction);
-          await interaction.editReply({ embeds: [embed] });
-          log(`Embed de membros enviado com sucesso para ${interaction.user.tag}`, "discord");
+          await interaction.followUp({
+            embeds: [embed],
+            ephemeral: true
+          });
+          log(`Lista de membros enviada para ${interaction.user.tag}`, "discord");
         } catch (error) {
           log(`Erro ao processar ver-membros: ${error}`, "discord");
-          await interaction.editReply({
+          await interaction.followUp({
             content: "Erro ao mostrar membros. Por favor, tente novamente.",
+            ephemeral: true
           });
         }
         break;
@@ -138,27 +121,16 @@ export async function handleButtons(interaction: ButtonInteraction) {
 
       case "fechar": {
         try {
-          // Use deferUpdate instead of deferReply to acknowledge the button interaction
-          await interaction.deferUpdate();
-
-          if (interaction.message.deletable) {
-            await interaction.message.delete();
-            // Send a new ephemeral message instead of editing the original
-            await interaction.followUp({ 
-              content: "Menu fechado!", 
-              ephemeral: true 
-            });
-            log(`Menu fechado por ${interaction.user.tag}`, "discord");
-          }
+          // Versão mais simples possível do botão fechar
+          const message = interaction.message;
+          const embeds = message.embeds;
+          await message.edit({
+            embeds: embeds,
+            components: []
+          });
+          log(`Menu fechado por ${interaction.user.tag}`, "discord");
         } catch (error) {
           log(`Erro ao fechar menu: ${error}`, "discord");
-          // If there's an error, try to send a new message
-          if (!interaction.replied) {
-            await interaction.followUp({
-              content: "Erro ao fechar o menu. Tente novamente.",
-              ephemeral: true
-            });
-          }
         }
         break;
       }
@@ -166,16 +138,10 @@ export async function handleButtons(interaction: ButtonInteraction) {
   } catch (error) {
     log(`Erro ao processar botão: ${error}`, "discord");
     try {
-      if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({
-          content: "Ocorreu um erro ao processar o botão. Por favor, tente novamente.",
-          ephemeral: true
-        });
-      } else {
-        await interaction.editReply({
-          content: "Ocorreu um erro ao processar o botão. Por favor, tente novamente.",
-        });
-      }
+      await interaction.followUp({
+        content: "Ocorreu um erro ao processar o botão. Por favor, tente novamente.",
+        ephemeral: true
+      });
     } catch (followUpError) {
       log(`Erro ao enviar mensagem de erro: ${followUpError}`, "discord");
     }
@@ -190,29 +156,32 @@ async function toggleRole(
 ) {
   try {
     if (!interaction.guild) {
-      await interaction.editReply({
+      await interaction.followUp({
         content: "Erro: Servidor não encontrado!",
+        ephemeral: true
       });
       return;
     }
 
     const config = await storage.getGuildConfig(interaction.guildId!);
     if (!config) {
-      await interaction.editReply({
+      await interaction.followUp({
         content: "Configuração não encontrada!",
+        ephemeral: true
       });
       return;
     }
 
-    // Verifica se o usuário tem permissão para usar o comando
+    // Verificar permissão do usuário
     if (config.allowedRoles && config.allowedRoles.length > 0) {
       const memberRoles = interaction.member!.roles as GuildMemberRoleManager;
       const hasPermission = memberRoles.cache.some(role =>
         config.allowedRoles!.includes(role.id)
       );
       if (!hasPermission && !interaction.memberPermissions?.has("Administrator")) {
-        await interaction.editReply({
+        await interaction.followUp({
           content: "Você não tem permissão para usar este comando!",
+          ephemeral: true
         });
         return;
       }
@@ -220,80 +189,81 @@ async function toggleRole(
 
     const targetMember = await interaction.guild.members.fetch(targetUserId);
     if (!targetMember) {
-      await interaction.editReply({
+      await interaction.followUp({
         content: "Erro: Usuário mencionado não encontrado no servidor!",
+        ephemeral: true
       });
       return;
     }
 
     const role = await interaction.guild.roles.fetch(roleId);
     if (!role) {
-      await interaction.editReply({
+      await interaction.followUp({
         content: `Erro: Cargo ${roleName} não encontrado!`,
+        ephemeral: true
       });
       return;
     }
 
-    // Verificações específicas para o 4un
+    // Verificar limitações do 4un
     if (roleName === "4un") {
       if (config.fourUnitAllowedRoles && config.fourUnitAllowedRoles.length > 0) {
         const canReceive4un = targetMember.roles.cache.some(role =>
           config.fourUnitAllowedRoles!.includes(role.id)
         );
         if (!canReceive4un) {
-          await interaction.editReply({
+          await interaction.followUp({
             content: "Este usuário não pode receber o cargo 4un!",
+            ephemeral: true
           });
           return;
         }
       }
     }
 
-    // Verifica limites
+    // Verificar limites
     const roleMembers = role.members.size;
     const roleLimit = getRoleLimit(config, roleId);
 
     if (!targetMember.roles.cache.has(roleId) && roleMembers >= roleLimit) {
-      await interaction.editReply({
+      await interaction.followUp({
         content: `Limite de ${roleLimit} membros atingido para o cargo ${roleName}!`,
+        ephemeral: true
       });
       return;
     }
 
-    if (!interaction.guild.members.me?.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
-      await interaction.editReply({
-        content: "Erro: Não tenho permissão para gerenciar cargos!",
-      });
-      return;
-    }
-
-    if (role.position >= interaction.guild.members.me.roles.highest.position) {
-      await interaction.editReply({
-        content: `Erro: Não posso gerenciar o cargo ${roleName} devido à hierarquia de cargos!`,
-      });
-      return;
-    }
-
+    // Adicionar ou remover o cargo
     const hasRole = targetMember.roles.cache.has(roleId);
     if (hasRole) {
       await targetMember.roles.remove(role);
-      await interaction.editReply({
+      await interaction.followUp({
         content: `Cargo ${roleName} removido de ${targetMember}! ❌`,
+        ephemeral: true
       });
       log(`Cargo ${roleName} removido do usuário ${targetMember.user.tag}`, "discord");
     } else {
       await targetMember.roles.add(role);
-      await interaction.editReply({
+      await interaction.followUp({
         content: `Cargo ${roleName} adicionado para ${targetMember}! ✅`,
+        ephemeral: true
       });
       log(`Cargo ${roleName} adicionado ao usuário ${targetMember.user.tag}`, "discord");
     }
   } catch (error) {
     log(`Erro ao modificar cargo ${roleName}: ${error}`, "discord");
-    await interaction.editReply({
+    await interaction.followUp({
       content: `Erro ao modificar o cargo ${roleName}. Por favor, tente novamente.`,
+      ephemeral: true
     });
   }
+}
+
+function formatMembersList(members: Collection<string, GuildMember> | undefined): string {
+  if (!members || members.size === 0) return "• Nenhum membro";
+  return Array.from(members.values())
+    .map((member: GuildMember) => `• ${member.user.username}`)
+    .join("\n");
 }
 
 async function createMembersEmbed(interaction: ButtonInteraction): Promise<EmbedBuilder> {
@@ -328,11 +298,4 @@ async function createMembersEmbed(interaction: ButtonInteraction): Promise<Embed
     )
     .setColor("#2F3136")
     .setTimestamp();
-}
-
-function formatMembersList(members: Collection<string, GuildMember> | undefined): string {
-  if (!members || members.size === 0) return "• Nenhum membro";
-  return Array.from(members.values())
-    .map((member: GuildMember) => `• ${member.user.username}`)
-    .join("\n");
 }
