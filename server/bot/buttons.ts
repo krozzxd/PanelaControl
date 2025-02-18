@@ -8,17 +8,16 @@ const roleAssignmentCollectors = new Map();
 
 export async function handleButtons(interaction: ButtonInteraction) {
   try {
-    // Sempre deferir a interação primeiro, antes de qualquer outra operação
     await interaction.deferUpdate();
     log(`Interação inicial deferida: ${interaction.customId}`, "discord");
 
-    // Verificar configuração do servidor
     const config = await storage.getGuildConfig(interaction.guildId!);
     if (!config) {
-      await interaction.followUp({
+      const reply = await interaction.followUp({
         content: "Configuração não encontrada! Use h!panela config primeiro.",
         ephemeral: true
       });
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
       return;
     }
 
@@ -42,20 +41,20 @@ export async function handleButtons(interaction: ButtonInteraction) {
         }[interaction.customId];
 
         if (!buttonConfig.roleId) {
-          await interaction.followUp({
+          const reply = await interaction.followUp({
             content: `Cargo ${buttonConfig.name} não configurado!`,
             ephemeral: true
           });
+          setTimeout(() => reply.delete().catch(() => {}), 120000);
           return;
         }
 
-        // Enviar mensagem pedindo menção
-        await interaction.followUp({
+        const reply = await interaction.followUp({
           content: `Mencione o usuário que receberá o cargo de ${buttonConfig.name}`,
           ephemeral: true
         });
+        setTimeout(() => reply.delete().catch(() => {}), 120000);
 
-        // Configurar coletor
         if (interaction.channel instanceof TextChannel) {
           const collectorKey = `${interaction.user.id}-${interaction.customId}`;
           if (roleAssignmentCollectors.has(collectorKey)) {
@@ -81,10 +80,11 @@ export async function handleButtons(interaction: ButtonInteraction) {
               }
             } catch (error) {
               log(`Erro ao processar toggle role: ${error}`, "discord");
-              await interaction.followUp({
+              const errorReply = await interaction.followUp({
                 content: "Ocorreu um erro ao processar o cargo. Por favor, tente novamente.",
                 ephemeral: true
               });
+              setTimeout(() => errorReply.delete().catch(() => {}), 120000);
             }
           });
 
@@ -94,6 +94,8 @@ export async function handleButtons(interaction: ButtonInteraction) {
               interaction.followUp({
                 content: "Tempo esgotado. Por favor, tente novamente.",
                 ephemeral: true
+              }).then(reply => {
+                setTimeout(() => reply.delete().catch(() => {}), 120000);
               });
             }
           });
@@ -104,32 +106,34 @@ export async function handleButtons(interaction: ButtonInteraction) {
       case "ver-membros": {
         try {
           const embed = await createMembersEmbed(interaction);
-          await interaction.followUp({
+          const reply = await interaction.followUp({
             embeds: [embed],
             ephemeral: true
           });
+          setTimeout(() => reply.delete().catch(() => {}), 120000);
           log(`Lista de membros enviada para ${interaction.user.tag}`, "discord");
         } catch (error) {
           log(`Erro ao processar ver-membros: ${error}`, "discord");
-          await interaction.followUp({
+          const errorReply = await interaction.followUp({
             content: "Erro ao mostrar membros. Por favor, tente novamente.",
             ephemeral: true
           });
+          setTimeout(() => errorReply.delete().catch(() => {}), 120000);
         }
         break;
       }
 
       case "fechar": {
         try {
-          // Tentar deletar a mensagem do menu
           await interaction.message.delete();
           log(`Menu fechado e apagado por ${interaction.user.tag}`, "discord");
         } catch (error) {
           log(`Erro ao fechar menu: ${error}`, "discord");
-          await interaction.followUp({
+          const errorReply = await interaction.followUp({
             content: "Erro ao fechar o menu. Por favor, tente novamente.",
             ephemeral: true
           });
+          setTimeout(() => errorReply.delete().catch(() => {}), 120000);
         }
         break;
       }
@@ -137,10 +141,11 @@ export async function handleButtons(interaction: ButtonInteraction) {
   } catch (error) {
     log(`Erro ao processar botão: ${error}`, "discord");
     try {
-      await interaction.followUp({
+      const errorReply = await interaction.followUp({
         content: "Ocorreu um erro ao processar o botão. Por favor, tente novamente.",
         ephemeral: true
       });
+      setTimeout(() => errorReply.delete().catch(() => {}), 120000);
     } catch (followUpError) {
       log(`Erro ao enviar mensagem de erro: ${followUpError}`, "discord");
     }
@@ -155,107 +160,110 @@ async function toggleRole(
 ) {
   try {
     if (!interaction.guild) {
-      await interaction.followUp({
+      const reply = await interaction.followUp({
         content: "Erro: Servidor não encontrado!",
         ephemeral: true
       });
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
       return;
     }
 
     const config = await storage.getGuildConfig(interaction.guildId!);
     if (!config) {
-      await interaction.followUp({
+      const reply = await interaction.followUp({
         content: "Configuração não encontrada!",
         ephemeral: true
       });
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
       return;
     }
 
-    // Verificar permissão do usuário
     if (config.allowedRoles && config.allowedRoles.length > 0) {
       const memberRoles = interaction.member!.roles as GuildMemberRoleManager;
       const hasPermission = memberRoles.cache.some(role =>
         config.allowedRoles!.includes(role.id)
       );
       if (!hasPermission && !interaction.memberPermissions?.has("Administrator")) {
-        await interaction.followUp({
+        const reply = await interaction.followUp({
           content: "Você não tem permissão para usar este comando!",
           ephemeral: true
         });
+        setTimeout(() => reply.delete().catch(() => {}), 120000);
         return;
       }
     }
 
     const targetMember = await interaction.guild.members.fetch(targetUserId);
     if (!targetMember) {
-      await interaction.followUp({
+      const reply = await interaction.followUp({
         content: "Erro: Usuário mencionado não encontrado no servidor!",
         ephemeral: true
       });
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
       return;
     }
 
     const role = await interaction.guild.roles.fetch(roleId);
     if (!role) {
-      await interaction.followUp({
+      const reply = await interaction.followUp({
         content: `Erro: Cargo ${roleName} não encontrado!`,
         ephemeral: true
       });
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
       return;
     }
 
-    // Verificar limitações do us
     if (roleName === "Us") {
       if (config.usAllowedRoles && config.usAllowedRoles.length > 0) {
         const canReceiveUs = targetMember.roles.cache.some(role =>
           config.usAllowedRoles!.includes(role.id)
         );
         if (!canReceiveUs) {
-          await interaction.followUp({
+          const reply = await interaction.followUp({
             content: "Este usuário não pode receber o cargo us!",
             ephemeral: true
           });
+          setTimeout(() => reply.delete().catch(() => {}), 120000);
           return;
         }
       }
     }
 
-
-    // Verificar limites
     const roleMembers = role.members.size;
     const roleLimit = getRoleLimit(config, roleId);
 
     if (!targetMember.roles.cache.has(roleId) && roleMembers >= roleLimit) {
-      await interaction.followUp({
+      const reply = await interaction.followUp({
         content: `Limite de ${roleLimit} membros atingido para o cargo ${roleName}!`,
         ephemeral: true
       });
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
       return;
     }
 
-    // Adicionar ou remover o cargo
     const hasRole = targetMember.roles.cache.has(roleId);
     if (hasRole) {
-      await targetMember.roles.remove(role);
-      await interaction.followUp({
+      const reply = await interaction.followUp({
         content: `Cargo ${roleName} removido de ${targetMember}! ❌`,
         ephemeral: true
       });
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
       log(`Cargo ${roleName} removido do usuário ${targetMember.user.tag}`, "discord");
     } else {
-      await targetMember.roles.add(role);
-      await interaction.followUp({
+      const reply = await interaction.followUp({
         content: `Cargo ${roleName} adicionado para ${targetMember}! ✅`,
         ephemeral: true
       });
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
       log(`Cargo ${roleName} adicionado ao usuário ${targetMember.user.tag}`, "discord");
     }
   } catch (error) {
     log(`Erro ao modificar cargo ${roleName}: ${error}`, "discord");
-    await interaction.followUp({
+    const errorReply = await interaction.followUp({
       content: `Erro ao modificar o cargo ${roleName}. Por favor, tente novamente.`,
       ephemeral: true
     });
+    setTimeout(() => errorReply.delete().catch(() => {}), 120000);
   }
 }
 

@@ -14,20 +14,22 @@ function formatMembersList(members: Collection<string, GuildMember> | undefined)
 
 async function handlePanelaAllow(message: Message, args: string[]) {
   try {
-    // Verificar se é o dono do bot
     if (message.author.id !== "545716531783532565") {
-      await message.reply("Apenas o dono pode definir permissões!");
+      const reply = await message.reply("Apenas o dono pode definir permissões!");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
       return;
     }
 
     if (message.mentions.roles.size === 0) {
-      await message.reply("Mencione os cargos que poderão usar o comando!");
+      const reply = await message.reply("Mencione os cargos que poderão usar o comando!");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
       return;
     }
 
     const config = await storage.getGuildConfig(message.guildId!);
     if (!config) {
-      await message.reply("Use h!panela config primeiro!"); // Altered
+      const reply = await message.reply("Use h!panela config primeiro!");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
       return;
     }
 
@@ -40,12 +42,15 @@ async function handlePanelaAllow(message: Message, args: string[]) {
     await storage.updateGuildConfig(message.guildId!, { allowedRoles });
 
     const rolesList = message.mentions.roles.map(role => role.name).join(", ");
-    await message.reply(`Cargos autorizados atualizados: ${rolesList}`);
+    const reply = await message.reply(`Cargos autorizados atualizados: ${rolesList}`);
+    setTimeout(() => reply.delete().catch(() => {}), 120000);
+
     log(`Cargos autorizados atualizados por ${message.author.tag}: ${rolesList}`, "discord");
 
   } catch (error) {
     log(`Erro ao definir cargos autorizados: ${error}`, "discord");
-    await message.reply("Erro ao definir cargos autorizados. Por favor, tente novamente.");
+    const reply = await message.reply("Erro ao definir cargos autorizados. Por favor, tente novamente.");
+    setTimeout(() => reply.delete().catch(() => {}), 120000);
   }
 }
 
@@ -53,53 +58,48 @@ async function handleCommands(message: Message) {
   log(`Processando mensagem: ${message.content}`, "discord");
 
   const args = message.content.toLowerCase().trim().split(/\s+/);
-  if (args[0] === "h!panela") {  // Alterado de hit!panela para h!panela
+  if (args[0] === "h!panela") {
     const config = await storage.getGuildConfig(message.guildId!);
 
-    // Se não houver configuração, apenas permitir o comando config pelo dono
     if (!config) {
       if (args[1] === "config") {
         if (message.author.id !== "545716531783532565") {
-          await message.reply("Apenas o dono pode configurar o bot!");
+          const reply = await message.reply("Apenas o dono pode configurar o bot!");
+          setTimeout(() => reply.delete().catch(() => {}), 120000);
           return;
         }
         await handlePanelaConfig(message);
       } else {
-        await message.reply("Use h!panela config primeiro!");  // Alterado
+        const reply = await message.reply("Use h!panela config primeiro!");
+        setTimeout(() => reply.delete().catch(() => {}), 120000);
       }
       return;
     }
 
-    // Sempre permitir comandos config e allow apenas para o dono
     if (args[1] === "config" || args[1] === "allow") {
       if (message.author.id !== "545716531783532565") {
-        await message.reply("Apenas o dono pode usar este comando!");
+        const reply = await message.reply("Apenas o dono pode usar este comando!");
+        setTimeout(() => reply.delete().catch(() => {}), 120000);
         return;
       }
     } else {
-      // Para outros comandos, verificar se o usuário tem permissão
       if (config.allowedRoles && config.allowedRoles.length > 0) {
         const hasPermission = message.member?.roles.cache.some(role =>
           config.allowedRoles!.includes(role.id)
         );
 
-        log(`Verificando permissões para ${message.author.tag}:
-          Cargos permitidos: ${config.allowedRoles.join(", ")}
-          Cargos do usuário: ${message.member?.roles.cache.map(r => r.id).join(", ")}
-          Tem permissão: ${hasPermission}`, "discord");
-
         if (!hasPermission) {
-          await message.reply("Você não tem permissão para usar este comando! É necessário ter um dos cargos autorizados.");
+          const reply = await message.reply("Você não tem permissão para usar este comando! É necessário ter um dos cargos autorizados.");
+          setTimeout(() => reply.delete().catch(() => {}), 120000);
           return;
         }
       } else {
-        log(`Nenhum cargo autorizado configurado no servidor ${message.guild?.name}`, "discord");
-        await message.reply("Nenhum cargo está autorizado a usar o comando. Peça ao dono para configurar com h!panela allow @cargo");  // Alterado
+        const reply = await message.reply("Nenhum cargo está autorizado a usar o comando. Peça ao dono para configurar com h!panela allow @cargo");
+        setTimeout(() => reply.delete().catch(() => {}), 120000);
         return;
       }
     }
 
-    // Processar comandos
     switch (args[1]) {
       case "config":
         await handlePanelaConfig(message);
@@ -121,7 +121,6 @@ async function handleCommands(message: Message) {
         }
     }
 
-    // Tentar deletar a mensagem do usuário após processar o comando
     try {
       await message.delete();
       log(`Mensagem do comando apagada: ${message.content}`, "discord");
@@ -134,21 +133,24 @@ async function handleCommands(message: Message) {
 async function handlePanelaLimit(message: Message, args: string[]) {
   try {
     if (!message.member?.permissions.has("Administrator")) {
-      await message.reply("Apenas administradores podem definir limites!");
+      const reply = await message.reply("Apenas administradores podem definir limites!");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
       return;
     }
 
     if (args.length !== 3 || message.mentions.roles.size !== 1) {
-      await message.reply(
-        "Use: h!panela limit [pd/antiban/us] @cargo número\n" +  // Alterado
-        "Exemplo: h!panela limit pd @cargo 5"  // Alterado
+      const reply = await message.reply(
+        "Use: h!panela limit [pd/antiban/us] @cargo número\n" +
+        "Exemplo: h!panela limit pd @cargo 5"
       );
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
       return;
     }
 
     const config = await storage.getGuildConfig(message.guildId!);
     if (!config) {
-      await message.reply("Use h!panela config primeiro!"); // Altered
+      const reply = await message.reply("Use h!panela config primeiro!");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
       return;
     }
 
@@ -157,16 +159,17 @@ async function handlePanelaLimit(message: Message, args: string[]) {
     const limit = parseInt(limitStr);
 
     if (!role) {
-      await message.reply("Por favor, mencione um cargo válido!");
+      const reply = await message.reply("Por favor, mencione um cargo válido!");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
       return;
     }
 
     if (isNaN(limit) || limit < 1) {
-      await message.reply("O limite deve ser um número positivo!");
+      const reply = await message.reply("O limite deve ser um número positivo!");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
       return;
     }
 
-    // Mapear o tipo para o ID do cargo configurado
     let targetRoleId: string | null = null;
     switch (type.toLowerCase()) {
       case "pd":
@@ -179,43 +182,49 @@ async function handlePanelaLimit(message: Message, args: string[]) {
         targetRoleId = config.usRoleId;
         break;
       default:
-        await message.reply("Tipo inválido! Use: pd, antiban ou us");
+        const reply = await message.reply("Tipo inválido! Use: pd, antiban ou us");
+        setTimeout(() => reply.delete().catch(() => {}), 120000);
         return;
     }
 
     if (!targetRoleId) {
-      await message.reply(`Cargo ${type} não está configurado!`);
+      const reply = await message.reply(`Cargo ${type} não está configurado!`);
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
       return;
     }
 
-    // Atualizar o limite para o cargo específico
-    const newLimits = setRoleLimit(config, targetRoleId, limit); 
+    const newLimits = setRoleLimit(config, targetRoleId, limit);
     await storage.updateGuildConfig(message.guildId!, { roleLimits: newLimits });
 
-    await message.reply(`Limite do cargo ${role.name} atualizado para ${limit}!`);
+    const reply = await message.reply(`Limite do cargo ${role.name} atualizado para ${limit}!`);
+    setTimeout(() => reply.delete().catch(() => {}), 120000);
     log(`Limite do cargo ${role.name} atualizado para ${limit} por ${message.author.tag}`, "discord");
 
   } catch (error) {
     log(`Erro ao definir limite: ${error}`, "discord");
-    await message.reply("Erro ao definir limite. Por favor, tente novamente.");
+    const reply = await message.reply("Erro ao definir limite. Por favor, tente novamente.");
+    setTimeout(() => reply.delete().catch(() => {}), 120000);
   }
 }
 
 async function handleUsAllow(message: Message, args: string[]) {
   try {
     if (!message.member?.permissions.has("Administrator")) {
-      await message.reply("Apenas administradores podem definir permissões do us!");
+      const reply = await message.reply("Apenas administradores podem definir permissões do us!");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
       return;
     }
 
     if (message.mentions.roles.size === 0) {
-      await message.reply("Mencione os cargos que poderão receber us!");
+      const reply = await message.reply("Mencione os cargos que poderão receber us!");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
       return;
     }
 
     const config = await storage.getGuildConfig(message.guildId!);
     if (!config) {
-      await message.reply("Use h!panela config primeiro!"); // Altered
+      const reply = await message.reply("Use h!panela config primeiro!");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
       return;
     }
 
@@ -223,12 +232,14 @@ async function handleUsAllow(message: Message, args: string[]) {
     await storage.updateGuildConfig(message.guildId!, { usAllowedRoles });
 
     const rolesList = message.mentions.roles.map(role => role.name).join(", ");
-    await message.reply(`Cargos que podem receber us atualizados: ${rolesList}`);
+    const reply = await message.reply(`Cargos que podem receber us atualizados: ${rolesList}`);
+    setTimeout(() => reply.delete().catch(() => {}), 120000);
     log(`Cargos permitidos para us atualizados por ${message.author.tag}: ${rolesList}`, "discord");
 
   } catch (error) {
     log(`Erro ao definir cargos permitidos para us: ${error}`, "discord");
-    await message.reply("Erro ao definir cargos permitidos para us. Por favor, tente novamente.");
+    const reply = await message.reply("Erro ao definir cargos permitidos para us. Por favor, tente novamente.");
+    setTimeout(() => reply.delete().catch(() => {}), 120000);
   }
 }
 
@@ -237,10 +248,11 @@ async function handlePanelaConfig(message: Message) {
     const roles = Array.from(message.mentions.roles.values());
 
     if (roles.length !== 3) {
-      await message.reply(
-        "Use: h!panela config @primeira-dama @antiban @us\n" +  // Alterado
+      const reply = await message.reply(
+        "Use: h!panela config @primeira-dama @antiban @us\n" +
         "Certifique-se de mencionar exatamente 3 cargos!"
       );
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
       return;
     }
 
@@ -248,7 +260,8 @@ async function handlePanelaConfig(message: Message) {
     log(`Cargos encontrados: ${firstLady.name}, ${antiBan.name}, ${us.name}`, "discord");
 
     if (!message.guildId) {
-      await message.reply("Erro: Não foi possível identificar o servidor!");
+      const reply = await message.reply("Erro: Não foi possível identificar o servidor!");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
       return;
     }
 
@@ -275,17 +288,19 @@ async function handlePanelaConfig(message: Message) {
       log(`Nova configuração criada para o servidor ${message.guildId}`, "discord");
     }
 
-    await message.reply(
+    const reply = await message.reply(
       `Configuração ${existingConfig ? 'atualizada' : 'salva'} com sucesso!\n` +
       `Cargos configurados:\n` +
       `- Primeira Dama: ${firstLady.name}\n` +
       `- Antiban: ${antiBan.name}\n` +
       `- Us: ${us.name}`
     );
+    setTimeout(() => reply.delete().catch(() => {}), 120000);
 
   } catch (error) {
     log(`Erro ao configurar cargos: ${error}`, "discord");
-    await message.reply("Erro ao configurar os cargos. Certifique-se de mencionar os cargos corretamente usando @.");
+    const reply = await message.reply("Erro ao configurar os cargos. Certifique-se de mencionar os cargos corretamente usando @.");
+    setTimeout(() => reply.delete().catch(() => {}), 120000);
   }
 }
 
@@ -303,45 +318,40 @@ function formatRoleInfo(role: Role | undefined | null, config: GuildConfig): str
 
 async function handlePanelaMenu(message: Message) {
   try {
-    // Verificar se o bot tem as permissões necessárias
     if (!message.guild?.members.me?.permissions.has([
       PermissionsBitField.Flags.ManageRoles,
       PermissionsBitField.Flags.SendMessages,
       PermissionsBitField.Flags.ViewChannel
     ])) {
-      await message.reply("O bot não tem as permissões necessárias! Preciso das permissões: Gerenciar Cargos, Enviar Mensagens, Ver Canal");
+      const reply = await message.reply("O bot não tem as permissões necessárias! Preciso das permissões: Gerenciar Cargos, Enviar Mensagens, Ver Canal");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
       return;
     }
 
     const config = await storage.getGuildConfig(message.guildId!);
 
     if (!config) {
-      await message.reply("Use h!panela config primeiro para configurar os cargos!"); // Altered
+      const reply = await message.reply("Use h!panela config primeiro para configurar os cargos!");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
       return;
     }
 
-    // Verificar se o usuário tem permissão para usar o comando
     if (config.allowedRoles && config.allowedRoles.length > 0) {
       const hasPermission = message.member?.roles.cache.some(role =>
         config.allowedRoles!.includes(role.id)
       );
 
-      log(`Verificando permissões no menu para ${message.author.tag}:
-        Cargos permitidos: ${config.allowedRoles.join(", ")}
-        Cargos do usuário: ${message.member?.roles.cache.map(r => r.id).join(", ")}
-        Tem permissão: ${hasPermission}`, "discord");
-
       if (!hasPermission) {
-        await message.reply("Você não tem permissão para usar este comando! É necessário ter um dos cargos autorizados.");
+        const reply = await message.reply("Você não tem permissão para usar este comando! É necessário ter um dos cargos autorizados.");
+        setTimeout(() => reply.delete().catch(() => {}), 120000);
         return;
       }
     } else {
-      log(`Nenhum cargo autorizado configurado no servidor ${message.guild?.name}`, "discord");
-      await message.reply("Nenhum cargo está autorizado a usar o comando. Peça ao dono para configurar com h!panela allow @cargo"); // Altered
+      const reply = await message.reply("Nenhum cargo está autorizado a usar o comando. Peça ao dono para configurar com h!panela allow @cargo");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
       return;
     }
 
-    // Obter contagem de cargos
     const roles = await message.guild.roles.fetch();
     const firstLadyRole = roles.get(config.firstLadyRoleId!);
     const antiBanRole = roles.get(config.antiBanRoleId!);
@@ -403,7 +413,8 @@ async function handlePanelaMenu(message: Message) {
       );
 
     if (!message.channel || !(message.channel instanceof TextChannel)) {
-      await message.reply("Este comando só pode ser usado em canais de texto!");
+      const reply = await message.reply("Este comando só pode ser usado em canais de texto!");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
       return;
     }
 
@@ -415,11 +426,13 @@ async function handlePanelaMenu(message: Message) {
       log(`Menu enviado com sucesso. ID da mensagem: ${sentMessage.id}`, "discord");
     } catch (error) {
       log(`Erro ao enviar mensagem: ${error}`, "discord");
-      await message.reply("Não foi possível enviar a mensagem no canal. Verifique as permissões do bot.");
+      const reply = await message.reply("Não foi possível enviar a mensagem no canal. Verifique as permissões do bot.");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
     }
   } catch (error) {
     log(`Erro ao criar menu: ${error}`, "discord");
-    await message.reply("Ocorreu um erro ao criar o menu. Tente novamente.");
+    const reply = await message.reply("Ocorreu um erro ao criar o menu. Tente novamente.");
+    setTimeout(() => reply.delete().catch(() => {}), 120000);
   }
 }
 
