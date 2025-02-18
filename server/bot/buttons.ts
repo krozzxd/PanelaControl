@@ -10,14 +10,7 @@ const roleAssignmentCollectors = new Map();
 function formatMembersList(members: Collection<string, GuildMember>, requesterId: string): string {
   if (!members || members.size === 0) return "• Nenhum membro";
 
-  // Se for o dono do servidor, mostrar todos os membros
-  if (requesterId === "545716531783532565") {
-    return Array.from(members.values())
-      .map((member: GuildMember) => `• ${member.user.username}`)
-      .join("\n");
-  }
-
-  // Para outros usuários, mostrar apenas os membros que eles adicionaram
+  // Para todos os usuários, mostrar apenas os membros que eles adicionaram
   const filteredMembers = members.filter(member => {
     const addedBy = member.roles.cache.find(role => 
       role.members.has(requesterId)
@@ -47,18 +40,16 @@ async function handlePanelaMenu(interaction: ButtonInteraction): Promise<void> {
     // Verificar permissões do usuário
     if (config.allowedRoles && config.allowedRoles.length > 0) {
       const memberRoles = interaction.member!.roles as GuildMemberRoleManager;
-      if (interaction.user.id !== "545716531783532565") {
-        const hasPermission = memberRoles.cache.some(role =>
-          config.allowedRoles!.includes(role.id)
-        );
-        if (!hasPermission) {
-          const reply = await interaction.followUp({
-            content: "Você não tem permissão para usar este comando!",
-            ephemeral: true
-          });
-          setTimeout(() => reply.delete().catch(() => {}), 120000);
-          return;
-        }
+      const hasPermission = memberRoles.cache.some(role =>
+        config.allowedRoles!.includes(role.id)
+      );
+      if (!hasPermission) {
+        const reply = await interaction.followUp({
+          content: "Você não tem permissão para usar este comando!",
+          ephemeral: true
+        });
+        setTimeout(() => reply.delete().catch(() => {}), 120000);
+        return;
       }
     }
 
@@ -176,22 +167,7 @@ async function toggleRole(
     const addedByUserId = getMemberAddedBy(config, roleId, targetMember.id);
 
     if (hasRole) {
-      // Se for o dono, pode remover qualquer membro
-      if (interaction.user.id === "545716531783532565") {
-        await targetMember.roles.remove(role);
-        const updatedMemberAddedBy = removeMember(config, roleId, targetMember.id);
-        await storage.updateGuildConfig(interaction.guildId!, { memberAddedBy: updatedMemberAddedBy });
-
-        const reply = await interaction.followUp({
-          content: `Cargo ${roleName} removido de ${targetMember}!`,
-          ephemeral: true
-        });
-        setTimeout(() => reply.delete().catch(() => {}), 120000);
-        log(`Cargo ${roleName} removido do usuário ${targetMember.user.tag} por ${interaction.user.tag}`, "discord");
-        return;
-      }
-
-      // Para outros usuários, só pode remover se foi quem adicionou
+      // Só pode remover se foi quem adicionou
       if (addedByUserId !== interaction.user.id) {
         const reply = await interaction.followUp({
           content: "Você só pode remover membros que você mesmo adicionou!",
@@ -213,22 +189,7 @@ async function toggleRole(
       setTimeout(() => reply.delete().catch(() => {}), 120000);
       log(`Cargo ${roleName} removido do usuário ${targetMember.user.tag} por ${interaction.user.tag}`, "discord");
     } else {
-      // Se for o dono, pode adicionar sem limite
-      if (interaction.user.id === "545716531783532565") {
-        await targetMember.roles.add(role);
-        const updatedMemberAddedBy = addMember(config, roleId, targetMember.id, interaction.user.id);
-        await storage.updateGuildConfig(interaction.guildId!, { memberAddedBy: updatedMemberAddedBy });
-
-        const reply = await interaction.followUp({
-          content: `Cargo ${roleName} adicionado para ${targetMember}!`,
-          ephemeral: true
-        });
-        setTimeout(() => reply.delete().catch(() => {}), 120000);
-        log(`Cargo ${roleName} adicionado ao usuário ${targetMember.user.tag} por ${interaction.user.tag}`, "discord");
-        return;
-      }
-
-      // Para outros usuários, verificar limite individual
+      // Verificar limite individual
       const userMembers = getMembersAddedByUser(config, roleId, interaction.user.id);
       const roleLimit = getRoleLimit(config, roleId);
 
@@ -366,8 +327,7 @@ export async function handleButtons(interaction: ButtonInteraction) {
 
       case "fechar": {
         try {
-          if (interaction.message.interaction?.user.id !== interaction.user.id &&
-            interaction.user.id !== "545716531783532565") {
+          if (interaction.message.interaction?.user.id !== interaction.user.id) {
             const reply = await interaction.followUp({
               content: "Apenas quem criou o menu pode fechá-lo!",
               ephemeral: true
