@@ -4,23 +4,23 @@ import { z } from "zod";
 
 export const guildConfigs = pgTable("guild_configs", {
   id: serial("id").primaryKey(),
-  guildId: text("guild_id").notNull().unique(),
+  guildId: text("guild_id").notNull().unique(), // Garantindo que seja único
   firstLadyRoleId: text("first_lady_role_id"),
   antiBanRoleId: text("anti_ban_role_id"),
-  usRoleId: text("us_role_id"), // Alterado de fourUnitRoleId
+  usRoleId: text("us_role_id"),
   roleLimits: text("role_limits").array(), // ["roleId:limit", "roleId:limit"]
   allowedRoles: text("allowed_roles").array(),
-  usAllowedRoles: text("us_allowed_roles").array(), // Alterado de fourUnitAllowedRoles
+  usAllowedRoles: text("us_allowed_roles").array(),
 });
 
 export const insertGuildConfigSchema = createInsertSchema(guildConfigs).pick({
   guildId: true,
   firstLadyRoleId: true,
   antiBanRoleId: true,
-  usRoleId: true, // Alterado
+  usRoleId: true,
   roleLimits: true,
   allowedRoles: true,
-  usAllowedRoles: true, // Alterado
+  usAllowedRoles: true,
 });
 
 export type InsertGuildConfig = z.infer<typeof insertGuildConfigSchema>;
