@@ -1,27 +1,25 @@
 import { ButtonInteraction, EmbedBuilder, PermissionsBitField, Message, TextChannel, GuildMember, Collection, GuildMemberRoleManager } from "discord.js";
 import { storage } from "../storage";
 import { log } from "../vite";
-import { getRoleLimit, addMember, removeMember, getMemberAddedBy, getMembersAddedByUser } from "@shared/schema";
+import { getRoleLimit, addMember, removeMember, getMemberAddedBy, getMembersAddedByUser, type GuildConfig } from "@shared/schema";
 
 // Map para armazenar coletores de atribuição de cargo ativos
 const roleAssignmentCollectors = new Map();
 
 // Função atualizada para mostrar apenas os membros adicionados pelo usuário
-function formatMembersList(members: Collection<string, GuildMember>, requesterId: string): string {
+function formatMembersList(members: Collection<string, GuildMember>, requesterId: string, roleId: string, config: GuildConfig): string {
   if (!members || members.size === 0) return "• Nenhum membro";
 
-  // Para todos os usuários, mostrar apenas os membros que eles adicionaram
-  const filteredMembers = members.filter(member => {
-    const addedBy = member.roles.cache.find(role => 
-      role.members.has(requesterId)
-    );
-    return addedBy !== undefined;
-  });
+  // Obter apenas os membros que este usuário adicionou
+  const userMembers = getMembersAddedByUser(config, roleId, requesterId);
+  if (userMembers.length === 0) return "• Nenhum membro";
 
-  if (filteredMembers.size === 0) return "• Nenhum membro";
-
-  return Array.from(filteredMembers.values())
-    .map((member: GuildMember) => `• ${member.user.username}`)
+  return userMembers
+    .map(memberId => {
+      const member = members.get(memberId);
+      return member ? `• ${member.user.username}` : null;
+    })
+    .filter(Boolean)
     .join("\n");
 }
 
@@ -30,7 +28,7 @@ async function handlePanelaMenu(interaction: ButtonInteraction): Promise<void> {
     const config = await storage.getGuildConfig(interaction.guildId!);
     if (!config) {
       const reply = await interaction.followUp({
-        content: "Configuração não encontrada! Use h!panela config primeiro.",
+        content: "Use h!panela config primeiro!",
         ephemeral: true
       });
       setTimeout(() => reply.delete().catch(() => {}), 120000);
@@ -88,9 +86,9 @@ async function handlePanelaMenu(interaction: ButtonInteraction): Promise<void> {
     const embed = new EmbedBuilder()
       .setTitle("👥 Sua Panela")
       .setDescription(
-        `<:anel:1337954327226093598> **Primeira Dama** (${userFirstLady.length}/${firstLadyLimit})\n${formatMembersList(firstLadyRole.members, interaction.user.id)}\n\n` +
-        `<:martelo:1337267926452932628> **Antiban** (${userAntiBan.length}/${antiBanLimit})\n${formatMembersList(antiBanRole.members, interaction.user.id)}\n\n` +
-        `<:cor:1337925018872709230> **Us** (${userUs.length}/${usLimit})\n${formatMembersList(usRole.members, interaction.user.id)}`
+        `<:anel:1337954327226093598> **Primeira Dama** (${userFirstLady.length}/${firstLadyLimit})\n${formatMembersList(firstLadyRole.members, interaction.user.id, config.firstLadyRoleId!, config)}\n\n` +
+        `<:martelo:1337267926452932628> **Antiban** (${userAntiBan.length}/${antiBanLimit})\n${formatMembersList(antiBanRole.members, interaction.user.id, config.antiBanRoleId!, config)}\n\n` +
+        `<:cor:1337925018872709230> **Us** (${userUs.length}/${usLimit})\n${formatMembersList(usRole.members, interaction.user.id, config.usRoleId!, config)}`
       )
       .setColor("#2F3136")
       .setTimestamp();

@@ -70,7 +70,7 @@ export function removeMember(config: GuildConfig, roleId: string, memberId: stri
     for (const [addedById, members] of Object.entries(memberAddedBy[roleId])) {
       if (members[memberId]) {
         delete memberAddedBy[roleId][addedById][memberId];
-        // Limpar objetos vazios
+        // Clear empty objects
         if (Object.keys(memberAddedBy[roleId][addedById]).length === 0) {
           delete memberAddedBy[roleId][addedById];
         }

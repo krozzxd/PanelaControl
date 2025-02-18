@@ -1,7 +1,7 @@
 import { Message, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, TextChannel, PermissionsBitField, Role, GuildMember, Collection } from "discord.js";
 import { storage } from "../storage";
 import { log } from "../vite";
-import { getRoleLimit, setRoleLimit } from "@shared/schema";
+import { getRoleLimit, setRoleLimit, getMembersAddedByUser } from "@shared/schema";
 import type { GuildConfig } from "@shared/schema";
 
 // Modificar a função formatMembersList para remover a exceção do dono
@@ -10,7 +10,7 @@ function formatMembersList(members: Collection<string, GuildMember>, requesterId
 
   // Para todos os usuários, mostrar apenas os membros que eles adicionaram
   const filteredMembers = members.filter(member => {
-    const addedBy = member.roles.cache.find(role => 
+    const addedBy = member.roles.cache.find(role =>
       role.members.has(requesterId)
     );
     return addedBy !== undefined;
@@ -320,159 +320,6 @@ async function handlePanelaConfig(message: Message) {
   }
 }
 
-function formatRoleInfo(role: Role | undefined | null, config: GuildConfig): string {
-  if (!role) return "• Nenhum membro";
-  const members = role.members;
-  const limit = getRoleLimit(config, role.id);
-  const count = members.size;
-
-  if (!members || count === 0) return `• Nenhum membro (0/${limit})`;
-  return Array.from(members.values())
-    .map((member: GuildMember) => `• ${member.user.username}`)
-    .join("\n");
-}
-
-async function handlePanelaMenu(message: Message) {
-  try {
-    if (!message.guild?.members.me?.permissions.has([
-      PermissionsBitField.Flags.ManageRoles,
-      PermissionsBitField.Flags.SendMessages,
-      PermissionsBitField.Flags.ViewChannel
-    ])) {
-      const reply = await message.reply("O bot não tem as permissões necessárias! Preciso das permissões: Gerenciar Cargos, Enviar Mensagens, Ver Canal");
-      setTimeout(() => reply.delete().catch(() => {}), 120000);
-      return;
-    }
-
-    // Verificar se estamos no servidor correto
-    if (!message.guildId) {
-      const reply = await message.reply("Erro: Não foi possível identificar o servidor!");
-      setTimeout(() => reply.delete().catch(() => {}), 120000);
-      return;
-    }
-
-    const config = await storage.getGuildConfig(message.guildId);
-
-    if (!config) {
-      const reply = await message.reply("Use h!panela config primeiro para configurar os cargos!");
-      setTimeout(() => reply.delete().catch(() => {}), 120000);
-      return;
-    }
-
-    if (config.allowedRoles && config.allowedRoles.length > 0) {
-      const hasPermission = message.member?.roles.cache.some(role =>
-        config.allowedRoles!.includes(role.id)
-      );
-
-      if (!hasPermission && message.author.id !== "545716531783532565") {
-        const reply = await message.reply("Você não tem permissão para usar este comando! É necessário ter um dos cargos autorizados.");
-        setTimeout(() => reply.delete().catch(() => {}), 120000);
-        return;
-      }
-    } else {
-      const reply = await message.reply("Nenhum cargo está autorizado a usar o comando. Peça ao dono para configurar com h!panela allow @cargo");
-      setTimeout(() => reply.delete().catch(() => {}), 120000);
-      return;
-    }
-
-    // Garantir que estamos pegando os cargos do servidor correto
-    const roles = await message.guild.roles.fetch();
-    const firstLadyRole = roles.get(config.firstLadyRoleId!);
-    const antiBanRole = roles.get(config.antiBanRoleId!);
-    const usRole = roles.get(config.usRoleId!);
-
-    // Verificar se os cargos existem neste servidor
-    if (!firstLadyRole || !antiBanRole || !usRole) {
-      const reply = await message.reply("Erro: Um ou mais cargos configurados não existem mais neste servidor. Use h!panela config para reconfigurar.");
-      setTimeout(() => reply.delete().catch(() => {}), 120000);
-      return;
-    }
-
-    // Pegar apenas os membros deste servidor específico
-    const firstLadyMembers = firstLadyRole.members.filter(member => member.guild.id === message.guildId);
-    const antiBanMembers = antiBanRole.members.filter(member => member.guild.id === message.guildId);
-    const usMembers = usRole.members.filter(member => member.guild.id === message.guildId);
-
-    const firstLadyCount = firstLadyMembers.size;
-    const antiBanCount = antiBanMembers.size;
-    const usCount = usMembers.size;
-
-    const firstLadyLimit = getRoleLimit(config, config.firstLadyRoleId!);
-    const antiBanLimit = getRoleLimit(config, config.antiBanRoleId!);
-    const usLimit = getRoleLimit(config, config.usRoleId!);
-
-    const embed = new EmbedBuilder()
-      .setTitle("🎮 Sistema de Cargos - Panela")
-      .setDescription(
-        "**Como usar:**\n\n" +
-        "1. Clique em um dos botões abaixo\n" +
-        "2. Mencione o usuário que receberá o cargo\n\n" +
-        "**Disponível:**\n" +
-        `<:anel:1337954327226093598> **Primeira Dama** (${firstLadyCount}/${firstLadyLimit})\n` +
-        `<:martelo:1337267926452932628> **Antiban** (${antiBanCount}/${antiBanLimit})\n` +
-        `<:cor:1337925018872709230> **Us** (${usCount}/${usLimit})\n\n` +
-        "💡 *Dica: Você tem 30 segundos para mencionar o usuário após clicar no botão.*"
-      )
-      .setThumbnail(message.guild.iconURL() || message.author.displayAvatarURL())
-      .setColor("#2F3136")
-      .setTimestamp();
-
-    const buttons = new ActionRowBuilder<ButtonBuilder>()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId("primeira-dama")
-          .setEmoji({ id: '1337954327226093598', name: 'anel' })
-          .setStyle(ButtonStyle.Secondary),
-
-        new ButtonBuilder()
-          .setCustomId("antiban")
-          .setEmoji({ id: '1337267926452932628', name: 'martelo' })
-          .setStyle(ButtonStyle.Secondary),
-
-        new ButtonBuilder()
-          .setCustomId("us")
-          .setEmoji({ id: '1337925018872709230', name: 'cor' })
-          .setStyle(ButtonStyle.Secondary),
-
-        new ButtonBuilder()
-          .setCustomId("ver-membros")
-          .setEmoji({ id: '1337509080142450719', name: 'peop' })
-          .setStyle(ButtonStyle.Secondary),
-      );
-
-    const closeButton = new ActionRowBuilder<ButtonBuilder>()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId("fechar")
-          .setLabel("Fechar")
-          .setStyle(ButtonStyle.Secondary),
-      );
-
-    if (!message.channel || !(message.channel instanceof TextChannel)) {
-      const reply = await message.reply("Este comando só pode ser usado em canais de texto!");
-      setTimeout(() => reply.delete().catch(() => {}), 120000);
-      return;
-    }
-
-    try {
-      const sentMessage = await message.channel.send({
-        embeds: [embed],
-        components: [buttons, closeButton],
-      });
-      log(`Menu enviado com sucesso. ID da mensagem: ${sentMessage.id}`, "discord");
-    } catch (error) {
-      log(`Erro ao enviar mensagem: ${error}`, "discord");
-      const reply = await message.reply("Não foi possível enviar a mensagem no canal. Verifique as permissões do bot.");
-      setTimeout(() => reply.delete().catch(() => {}), 120000);
-    }
-  } catch (error) {
-    log(`Erro ao criar menu: ${error}`, "discord");
-    const reply = await message.reply("Ocorreu um erro ao criar o menu. Tente novamente.");
-    setTimeout(() => reply.delete().catch(() => {}), 120000);
-  }
-}
-
-// Adicionar esta nova função no arquivo commands.ts
 async function handlePanelaReset(message: Message) {
   try {
     if (!message.guild) {
@@ -535,6 +382,160 @@ async function handlePanelaReset(message: Message) {
   } catch (error) {
     log(`Erro ao resetar panelas: ${error}`, "discord");
     const reply = await message.reply("Ocorreu um erro ao resetar as panelas. Por favor, tente novamente.");
+    setTimeout(() => reply.delete().catch(() => {}), 120000);
+  }
+}
+
+function formatRoleInfo(role: Role | undefined | null, config: GuildConfig, requesterId: string): string {
+  if (!role) return "• Nenhum membro";
+  const limit = getRoleLimit(config, role.id);
+
+  // Get members added by this user
+  const userMembers = getMembersAddedByUser(config, role.id, requesterId);
+  if (userMembers.length === 0) return `• Nenhum membro (0/${limit})`;
+
+  // Only show members that this user added
+  return userMembers
+    .map(memberId => {
+      const member = role.members.get(memberId);
+      return member ? `• ${member.user.username}` : null;
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+async function handlePanelaMenu(message: Message) {
+  try {
+    if (!message.guild?.members.me?.permissions.has([
+      PermissionsBitField.Flags.ManageRoles,
+      PermissionsBitField.Flags.SendMessages,
+      PermissionsBitField.Flags.ViewChannel
+    ])) {
+      const reply = await message.reply("O bot não tem as permissões necessárias! Preciso das permissões: Gerenciar Cargos, Enviar Mensagens, Ver Canal");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
+      return;
+    }
+
+    if (!message.guildId) {
+      const reply = await message.reply("Erro: Não foi possível identificar o servidor!");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
+      return;
+    }
+
+    const config = await storage.getGuildConfig(message.guildId);
+    if (!config) {
+      const reply = await message.reply("Use h!panela config primeiro para configurar os cargos!");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
+      return;
+    }
+
+    // Verificar permissões do usuário
+    if (config.allowedRoles && config.allowedRoles.length > 0) {
+      const hasPermission = message.member?.roles.cache.some(role =>
+        config.allowedRoles!.includes(role.id)
+      );
+
+      if (!hasPermission) {
+        const reply = await message.reply("Você não tem permissão para usar este comando! É necessário ter um dos cargos autorizados.");
+        setTimeout(() => reply.delete().catch(() => {}), 120000);
+        return;
+      }
+    } else {
+      const reply = await message.reply("Nenhum cargo está autorizado a usar o comando. Peça ao dono para configurar com h!panela allow @cargo");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
+      return;
+    }
+
+    const roles = await message.guild.roles.fetch();
+    const firstLadyRole = roles.get(config.firstLadyRoleId!);
+    const antiBanRole = roles.get(config.antiBanRoleId!);
+    const usRole = roles.get(config.usRoleId!);
+
+    if (!firstLadyRole || !antiBanRole || !usRole) {
+      const reply = await message.reply("Erro: Um ou mais cargos configurados não existem mais neste servidor. Use h!panela config para reconfigurar.");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
+      return;
+    }
+
+    // Get members added by this user for each role
+    const userFirstLady = getMembersAddedByUser(config, config.firstLadyRoleId!, message.author.id);
+    const userAntiBan = getMembersAddedByUser(config, config.antiBanRoleId!, message.author.id);
+    const userUs = getMembersAddedByUser(config, config.usRoleId!, message.author.id);
+
+    const firstLadyLimit = getRoleLimit(config, config.firstLadyRoleId!);
+    const antiBanLimit = getRoleLimit(config, config.antiBanRoleId!);
+    const usLimit = getRoleLimit(config, config.usRoleId!);
+
+    const embed = new EmbedBuilder()
+      .setTitle("🎮 Sistema de Cargos - Panela")
+      .setDescription(
+        "**Como usar:**\n\n" +
+        "1. Clique em um dos botões abaixo\n" +
+        "2. Mencione o usuário que receberá o cargo\n\n" +
+        "**Disponível:**\n" +
+        `<:anel:1337954327226093598> **Primeira Dama** (${userFirstLady.length}/${firstLadyLimit})\n` +
+        `${formatRoleInfo(firstLadyRole, config, message.author.id)}\n\n` +
+        `<:martelo:1337267926452932628> **Antiban** (${userAntiBan.length}/${antiBanLimit})\n` +
+        `${formatRoleInfo(antiBanRole, config, message.author.id)}\n\n` +
+        `<:cor:1337925018872709230> **Us** (${userUs.length}/${usLimit})\n` +
+        `${formatRoleInfo(usRole, config, message.author.id)}\n\n` +
+        "💡 *Dica: Você tem 30 segundos para mencionar o usuário após clicar no botão.*"
+      )
+      .setThumbnail(message.guild.iconURL() || message.author.displayAvatarURL())
+      .setColor("#2F3136")
+      .setTimestamp();
+
+    const buttons = new ActionRowBuilder<ButtonBuilder>()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId("primeira-dama")
+          .setEmoji({ id: '1337954327226093598', name: 'anel' })
+          .setStyle(ButtonStyle.Secondary),
+
+        new ButtonBuilder()
+          .setCustomId("antiban")
+          .setEmoji({ id: '1337267926452932628', name: 'martelo' })
+          .setStyle(ButtonStyle.Secondary),
+
+        new ButtonBuilder()
+          .setCustomId("us")
+          .setEmoji({ id: '1337925018872709230', name: 'cor' })
+          .setStyle(ButtonStyle.Secondary),
+
+        new ButtonBuilder()
+          .setCustomId("ver-membros")
+          .setEmoji({ id: '1337509080142450719', name: 'peop' })
+          .setStyle(ButtonStyle.Secondary),
+      );
+
+    const closeButton = new ActionRowBuilder<ButtonBuilder>()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId("fechar")
+          .setLabel("Fechar")
+          .setStyle(ButtonStyle.Secondary),
+      );
+
+    if (!message.channel || !(message.channel instanceof TextChannel)) {
+      const reply = await message.reply("Este comando só pode ser usado em canais de texto!");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
+      return;
+    }
+
+    try {
+      const sentMessage = await message.channel.send({
+        embeds: [embed],
+        components: [buttons, closeButton],
+      });
+      log(`Menu enviado com sucesso. ID da mensagem: ${sentMessage.id}`, "discord");
+    } catch (error) {
+      log(`Erro ao enviar mensagem: ${error}`, "discord");
+      const reply = await message.reply("Não foi possível enviar a mensagem no canal. Verifique as permissões do bot.");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
+    }
+  } catch (error) {
+    log(`Erro ao criar menu: ${error}`, "discord");
+    const reply = await message.reply("Ocorreu um erro ao criar o menu. Tente novamente.");
     setTimeout(() => reply.delete().catch(() => {}), 120000);
   }
 }
