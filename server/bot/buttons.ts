@@ -121,16 +121,15 @@ export async function handleButtons(interaction: ButtonInteraction) {
 
       case "fechar": {
         try {
-          // Versão mais simples possível do botão fechar
-          const message = interaction.message;
-          const embeds = message.embeds;
-          await message.edit({
-            embeds: embeds,
-            components: []
-          });
-          log(`Menu fechado por ${interaction.user.tag}`, "discord");
+          // Tentar deletar a mensagem do menu
+          await interaction.message.delete();
+          log(`Menu fechado e apagado por ${interaction.user.tag}`, "discord");
         } catch (error) {
           log(`Erro ao fechar menu: ${error}`, "discord");
+          await interaction.followUp({
+            content: "Erro ao fechar o menu. Por favor, tente novamente.",
+            ephemeral: true
+          });
         }
         break;
       }

@@ -120,6 +120,14 @@ async function handleCommands(message: Message) {
           await handlePanelaMenu(message);
         }
     }
+
+    // Tentar deletar a mensagem do usuário após processar o comando
+    try {
+      await message.delete();
+      log(`Mensagem do comando apagada: ${message.content}`, "discord");
+    } catch (error) {
+      log(`Erro ao tentar apagar mensagem do comando: ${error}`, "discord");
+    }
   }
 }
 
