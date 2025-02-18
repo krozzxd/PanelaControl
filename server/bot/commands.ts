@@ -231,6 +231,25 @@ async function handleUsAllow(message: Message, args: string[]) {
       return;
     }
 
+    // Pegar o cargo us
+    const usRole = message.guild?.roles.cache.get(config.usRoleId!);
+    if (!usRole) {
+      const reply = await message.reply("Cargo us não encontrado!");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
+      return;
+    }
+
+    // Configurar permissões do cargo para prevenir manipulação manual
+    try {
+      await usRole.setPermissions([]);
+      await usRole.setMentionable(false);
+    } catch (error) {
+      log(`Erro ao configurar permissões do cargo us: ${error}`, "discord");
+      const reply = await message.reply("Erro ao configurar permissões do cargo us. Certifique-se que o bot tem permissões adequadas.");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
+      return;
+    }
+
     const usAllowedRoles = Array.from(message.mentions.roles.values()).map(role => role.id);
     await storage.updateGuildConfig(message.guildId!, { usAllowedRoles });
 
@@ -264,6 +283,17 @@ async function handlePanelaConfig(message: Message) {
 
     if (!message.guildId) {
       const reply = await message.reply("Erro: Não foi possível identificar o servidor!");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
+      return;
+    }
+
+    // Configurar permissões do cargo us
+    try {
+      await us.setPermissions([]);
+      await us.setMentionable(false);
+    } catch (error) {
+      log(`Erro ao configurar permissões do cargo us: ${error}`, "discord");
+      const reply = await message.reply("Erro ao configurar permissões do cargo us. Certifique-se que o bot tem permissões adequadas.");
       setTimeout(() => reply.delete().catch(() => {}), 120000);
       return;
     }

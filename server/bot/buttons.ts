@@ -223,19 +223,34 @@ async function toggleRole(
       return;
     }
 
+    // Proteção especial para o cargo us
     if (roleName === "Us") {
-      if (config.usAllowedRoles && config.usAllowedRoles.length > 0) {
-        const canReceiveUs = targetMember.roles.cache.some(role =>
-          config.usAllowedRoles!.includes(role.id)
-        );
-        if (!canReceiveUs) {
-          const reply = await interaction.followUp({
-            content: "Este usuário não pode receber o cargo us!",
-            ephemeral: true
-          });
-          setTimeout(() => reply.delete().catch(() => {}), 120000);
-          return;
+      try {
+        // Garantir que o cargo ainda está com as permissões corretas
+        await role.setPermissions([]);
+        await role.setMentionable(false);
+
+        if (config.usAllowedRoles && config.usAllowedRoles.length > 0) {
+          const canReceiveUs = targetMember.roles.cache.some(role =>
+            config.usAllowedRoles!.includes(role.id)
+          );
+          if (!canReceiveUs) {
+            const reply = await interaction.followUp({
+              content: "Este usuário não pode receber o cargo us!",
+              ephemeral: true
+            });
+            setTimeout(() => reply.delete().catch(() => {}), 120000);
+            return;
+          }
         }
+      } catch (error) {
+        log(`Erro ao verificar permissões do cargo us: ${error}`, "discord");
+        const reply = await interaction.followUp({
+          content: "Erro ao verificar permissões do cargo us. Por favor, tente novamente.",
+          ephemeral: true
+        });
+        setTimeout(() => reply.delete().catch(() => {}), 120000);
+        return;
       }
     }
 
