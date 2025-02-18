@@ -4,16 +4,12 @@ import { log } from "../vite";
 import { getRoleLimit, setRoleLimit } from "@shared/schema";
 import type { GuildConfig } from "@shared/schema";
 
-// Função atualizada para mostrar apenas os membros adicionados pelo usuário
+// Modificar a função formatMembersList para remover a exceção do dono
 function formatMembersList(members: Collection<string, GuildMember>, requesterId: string): string {
   if (!members || members.size === 0) return "• Nenhum membro";
 
-  // Filtrar apenas os membros que foram adicionados por quem está vendo
+  // Para todos os usuários, mostrar apenas os membros que eles adicionaram
   const filteredMembers = members.filter(member => {
-    // Se for o dono do servidor, ver todos
-    if (requesterId === "545716531783532565") return true;
-
-    // Para outros usuários, verificar o usuário que adicionou o membro
     const addedBy = member.roles.cache.find(role => 
       role.members.has(requesterId)
     );
@@ -78,11 +74,6 @@ async function handleCommands(message: Message) {
 
     if (!config) {
       if (args[1] === "config") {
-        if (message.author.id !== "545716531783532565") {
-          const reply = await message.reply("Apenas o dono pode configurar o bot!");
-          setTimeout(() => reply.delete().catch(() => {}), 120000);
-          return;
-        }
         await handlePanelaConfig(message);
       } else {
         const reply = await message.reply("Use h!panela config primeiro!");
@@ -91,34 +82,10 @@ async function handleCommands(message: Message) {
       return;
     }
 
-    if (args[1] === "config" || args[1] === "allow") {
-      if (message.author.id !== "545716531783532565") {
-        const reply = await message.reply("Apenas o dono pode usar este comando!");
-        setTimeout(() => reply.delete().catch(() => {}), 120000);
-        return;
-      }
-    } else {
-      // Se o usuário for o dono, ignorar verificação de cargos
-      if (message.author.id !== "545716531783532565") {
-        if (config.allowedRoles && config.allowedRoles.length > 0) {
-          const hasPermission = message.member?.roles.cache.some(role =>
-            config.allowedRoles!.includes(role.id)
-          );
-
-          if (!hasPermission) {
-            const reply = await message.reply("Você não tem permissão para usar este comando! É necessário ter um dos cargos autorizados.");
-            setTimeout(() => reply.delete().catch(() => {}), 120000);
-            return;
-          }
-        } else {
-          const reply = await message.reply("Nenhum cargo está autorizado a usar o comando. Peça ao dono para configurar com h!panela allow @cargo");
-          setTimeout(() => reply.delete().catch(() => {}), 120000);
-          return;
-        }
-      }
-    }
-
     switch (args[1]) {
+      case "reset":
+        await handlePanelaReset(message);
+        break;
       case "config":
         await handlePanelaConfig(message);
         break;
@@ -332,6 +299,7 @@ async function handlePanelaConfig(message: Message) {
         roleLimits: [],
         allowedRoles: [],
         usAllowedRoles: [],
+        memberAddedBy: {},
       });
       log(`Nova configuração criada para o servidor ${message.guildId}`, "discord");
     }
@@ -500,6 +468,73 @@ async function handlePanelaMenu(message: Message) {
   } catch (error) {
     log(`Erro ao criar menu: ${error}`, "discord");
     const reply = await message.reply("Ocorreu um erro ao criar o menu. Tente novamente.");
+    setTimeout(() => reply.delete().catch(() => {}), 120000);
+  }
+}
+
+// Adicionar esta nova função no arquivo commands.ts
+async function handlePanelaReset(message: Message) {
+  try {
+    if (!message.guild) {
+      const reply = await message.reply("Erro: Servidor não encontrado!");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
+      return;
+    }
+
+    const config = await storage.getGuildConfig(message.guildId!);
+    if (!config) {
+      const reply = await message.reply("Use h!panela config primeiro!");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
+      return;
+    }
+
+    // Buscar os cargos
+    const roles = await message.guild.roles.fetch();
+    const firstLadyRole = roles.get(config.firstLadyRoleId!);
+    const antiBanRole = roles.get(config.antiBanRoleId!);
+    const usRole = roles.get(config.usRoleId!);
+
+    if (!firstLadyRole || !antiBanRole || !usRole) {
+      const reply = await message.reply("Um ou mais cargos configurados não existem mais neste servidor.");
+      setTimeout(() => reply.delete().catch(() => {}), 120000);
+      return;
+    }
+
+    // Remover os cargos de todos os membros
+    const removeRolePromises: Promise<GuildMember>[] = [];
+
+    firstLadyRole.members.forEach(member => {
+      removeRolePromises.push(member.roles.remove(firstLadyRole));
+    });
+
+    antiBanRole.members.forEach(member => {
+      removeRolePromises.push(member.roles.remove(antiBanRole));
+    });
+
+    usRole.members.forEach(member => {
+      removeRolePromises.push(member.roles.remove(usRole));
+    });
+
+    await Promise.all(removeRolePromises);
+
+    // Resetar a configuração mantendo apenas os IDs dos cargos
+    await storage.updateGuildConfig(message.guildId!, {
+      firstLadyRoleId: config.firstLadyRoleId,
+      antiBanRoleId: config.antiBanRoleId,
+      usRoleId: config.usRoleId,
+      roleLimits: [],
+      allowedRoles: config.allowedRoles,
+      usAllowedRoles: config.usAllowedRoles,
+      memberAddedBy: {},
+    });
+
+    const reply = await message.reply("✅ Todos os membros foram removidos das panelas!");
+    setTimeout(() => reply.delete().catch(() => {}), 120000);
+    log(`Panelas resetadas por ${message.author.tag}`, "discord");
+
+  } catch (error) {
+    log(`Erro ao resetar panelas: ${error}`, "discord");
+    const reply = await message.reply("Ocorreu um erro ao resetar as panelas. Por favor, tente novamente.");
     setTimeout(() => reply.delete().catch(() => {}), 120000);
   }
 }
