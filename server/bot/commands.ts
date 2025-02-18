@@ -110,9 +110,9 @@ async function handleCommands(message: Message) {
       case "allow":
         await handlePanelaAllow(message, args.slice(2));
         break;
-      case "4un":
+      case "us":
         if (args[2] === "allow") {
-          await handle4unAllow(message, args.slice(3));
+          await handleUsAllow(message, args.slice(3));
         }
         break;
       default:
@@ -141,7 +141,7 @@ async function handlePanelaLimit(message: Message, args: string[]) {
 
     if (args.length !== 3 || message.mentions.roles.size !== 1) {
       await message.reply(
-        "Use: hit!panela limit [pd/antiban/4un] @cargo número\n" +
+        "Use: hit!panela limit [pd/antiban/us] @cargo número\n" +
         "Exemplo: hit!panela limit pd @cargo 5"
       );
       return;
@@ -176,11 +176,11 @@ async function handlePanelaLimit(message: Message, args: string[]) {
       case "antiban":
         targetRoleId = config.antiBanRoleId;
         break;
-      case "4un":
-        targetRoleId = config.fourUnitRoleId;
+      case "us":
+        targetRoleId = config.usRoleId;
         break;
       default:
-        await message.reply("Tipo inválido! Use: pd, antiban ou 4un");
+        await message.reply("Tipo inválido! Use: pd, antiban ou us");
         return;
     }
 
@@ -190,7 +190,7 @@ async function handlePanelaLimit(message: Message, args: string[]) {
     }
 
     // Atualizar o limite para o cargo específico
-    const newLimits = setRoleLimit(config, targetRoleId, limit); // Corrected line to use targetRoleId
+    const newLimits = setRoleLimit(config, targetRoleId, limit); 
     await storage.updateGuildConfig(message.guildId!, { roleLimits: newLimits });
 
     await message.reply(`Limite do cargo ${role.name} atualizado para ${limit}!`);
@@ -202,15 +202,15 @@ async function handlePanelaLimit(message: Message, args: string[]) {
   }
 }
 
-async function handle4unAllow(message: Message, args: string[]) {
+async function handleUsAllow(message: Message, args: string[]) {
   try {
     if (!message.member?.permissions.has("Administrator")) {
-      await message.reply("Apenas administradores podem definir permissões do 4un!");
+      await message.reply("Apenas administradores podem definir permissões do us!");
       return;
     }
 
     if (message.mentions.roles.size === 0) {
-      await message.reply("Mencione os cargos que poderão receber 4un!");
+      await message.reply("Mencione os cargos que poderão receber us!");
       return;
     }
 
@@ -220,68 +220,58 @@ async function handle4unAllow(message: Message, args: string[]) {
       return;
     }
 
-    const fourUnitAllowedRoles = Array.from(message.mentions.roles.values()).map(role => role.id);
-    await storage.updateGuildConfig(message.guildId!, { fourUnitAllowedRoles });
+    const usAllowedRoles = Array.from(message.mentions.roles.values()).map(role => role.id);
+    await storage.updateGuildConfig(message.guildId!, { usAllowedRoles });
 
     const rolesList = message.mentions.roles.map(role => role.name).join(", ");
-    await message.reply(`Cargos que podem receber 4un atualizados: ${rolesList}`);
-    log(`Cargos permitidos para 4un atualizados por ${message.author.tag}: ${rolesList}`, "discord");
+    await message.reply(`Cargos que podem receber us atualizados: ${rolesList}`);
+    log(`Cargos permitidos para us atualizados por ${message.author.tag}: ${rolesList}`, "discord");
 
   } catch (error) {
-    log(`Erro ao definir cargos permitidos para 4un: ${error}`, "discord");
-    await message.reply("Erro ao definir cargos permitidos para 4un. Por favor, tente novamente.");
+    log(`Erro ao definir cargos permitidos para us: ${error}`, "discord");
+    await message.reply("Erro ao definir cargos permitidos para us. Por favor, tente novamente.");
   }
 }
 
 async function handlePanelaConfig(message: Message) {
   try {
-    // Verificação de dono já foi feita em handleCommands
-
-    // Log para debug
-    log(`Processando comando config - Mensagem: ${message.content}`, "discord");
-    log(`Menções de cargos: ${JSON.stringify(Array.from(message.mentions.roles.values()).map(r => r.name))}`, "discord");
-
     const roles = Array.from(message.mentions.roles.values());
 
     if (roles.length !== 3) {
       await message.reply(
-        "Use: hit!panela config @primeira-dama @antiban @4un\n" +
+        "Use: hit!panela config @primeira-dama @antiban @us\n" +
         "Certifique-se de mencionar exatamente 3 cargos!"
       );
       return;
     }
 
-    const [firstLady, antiBan, fourUnit] = roles;
-    log(`Cargos encontrados: ${firstLady.name}, ${antiBan.name}, ${fourUnit.name}`, "discord");
+    const [firstLady, antiBan, us] = roles;
+    log(`Cargos encontrados: ${firstLady.name}, ${antiBan.name}, ${us.name}`, "discord");
 
-    // Verificar se o guildId existe
     if (!message.guildId) {
       await message.reply("Erro: Não foi possível identificar o servidor!");
       return;
     }
 
-    // Verificar se já existe uma configuração
     const existingConfig = await storage.getGuildConfig(message.guildId);
 
     let guildConfig;
     if (existingConfig) {
-      // Atualizar configuração existente
       guildConfig = await storage.updateGuildConfig(message.guildId, {
         firstLadyRoleId: firstLady.id,
         antiBanRoleId: antiBan.id,
-        fourUnitRoleId: fourUnit.id,
+        usRoleId: us.id,
       });
       log(`Configuração atualizada para o servidor ${message.guildId}`, "discord");
     } else {
-      // Criar nova configuração
       guildConfig = await storage.saveGuildConfig({
         guildId: message.guildId,
         firstLadyRoleId: firstLady.id,
         antiBanRoleId: antiBan.id,
-        fourUnitRoleId: fourUnit.id,
+        usRoleId: us.id,
         roleLimits: [],
         allowedRoles: [],
-        fourUnitAllowedRoles: [],
+        usAllowedRoles: [],
       });
       log(`Nova configuração criada para o servidor ${message.guildId}`, "discord");
     }
@@ -291,7 +281,7 @@ async function handlePanelaConfig(message: Message) {
       `Cargos configurados:\n` +
       `- Primeira Dama: ${firstLady.name}\n` +
       `- Antiban: ${antiBan.name}\n` +
-      `- 4un: ${fourUnit.name}`
+      `- Us: ${us.name}`
     );
 
   } catch (error) {
@@ -356,15 +346,15 @@ async function handlePanelaMenu(message: Message) {
     const roles = await message.guild.roles.fetch();
     const firstLadyRole = roles.get(config.firstLadyRoleId!);
     const antiBanRole = roles.get(config.antiBanRoleId!);
-    const fourUnitRole = roles.get(config.fourUnitRoleId!);
+    const usRole = roles.get(config.usRoleId!);
 
     const firstLadyCount = firstLadyRole?.members.size || 0;
     const antiBanCount = antiBanRole?.members.size || 0;
-    const fourUnitCount = fourUnitRole?.members.size || 0;
+    const usCount = usRole?.members.size || 0;
 
     const firstLadyLimit = getRoleLimit(config, config.firstLadyRoleId!);
     const antiBanLimit = getRoleLimit(config, config.antiBanRoleId!);
-    const fourUnitLimit = getRoleLimit(config, config.fourUnitRoleId!);
+    const usLimit = getRoleLimit(config, config.usRoleId!);
 
     const embed = new EmbedBuilder()
       .setTitle("🎮 Sistema de Cargos - Panela")
@@ -375,7 +365,7 @@ async function handlePanelaMenu(message: Message) {
         "**Disponível:**\n" +
         `<:anel:1337954327226093598> **Primeira Dama** (${firstLadyCount}/${firstLadyLimit})\n` +
         `<:martelo:1337267926452932628> **Antiban** (${antiBanCount}/${antiBanLimit})\n` +
-        `<:cor:1337925018872709230> **4un** (${fourUnitCount}/${fourUnitLimit})\n\n` +
+        `<:cor:1337925018872709230> **Us** (${usCount}/${usLimit})\n\n` +
         "💡 *Dica: Você tem 30 segundos para mencionar o usuário após clicar no botão.*"
       )
       .setThumbnail(message.author.displayAvatarURL())
@@ -395,7 +385,7 @@ async function handlePanelaMenu(message: Message) {
           .setStyle(ButtonStyle.Secondary),
 
         new ButtonBuilder()
-          .setCustomId("4un")
+          .setCustomId("us")
           .setEmoji({ id: '1337925018872709230', name: 'cor' })
           .setStyle(ButtonStyle.Secondary),
 

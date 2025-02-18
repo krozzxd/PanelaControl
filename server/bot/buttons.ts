@@ -25,7 +25,7 @@ export async function handleButtons(interaction: ButtonInteraction) {
     switch (interaction.customId) {
       case "primeira-dama":
       case "antiban":
-      case "4un": {
+      case "us": {
         const buttonConfig = {
           "primeira-dama": {
             roleId: config.firstLadyRoleId,
@@ -35,9 +35,9 @@ export async function handleButtons(interaction: ButtonInteraction) {
             roleId: config.antiBanRoleId,
             name: "Antiban",
           },
-          "4un": {
-            roleId: config.fourUnitRoleId,
-            name: "4un",
+          "us": {
+            roleId: config.usRoleId,
+            name: "Us",
           },
         }[interaction.customId];
 
@@ -204,21 +204,22 @@ async function toggleRole(
       return;
     }
 
-    // Verificar limitações do 4un
-    if (roleName === "4un") {
-      if (config.fourUnitAllowedRoles && config.fourUnitAllowedRoles.length > 0) {
-        const canReceive4un = targetMember.roles.cache.some(role =>
-          config.fourUnitAllowedRoles!.includes(role.id)
+    // Verificar limitações do us
+    if (roleName === "Us") {
+      if (config.usAllowedRoles && config.usAllowedRoles.length > 0) {
+        const canReceiveUs = targetMember.roles.cache.some(role =>
+          config.usAllowedRoles!.includes(role.id)
         );
-        if (!canReceive4un) {
+        if (!canReceiveUs) {
           await interaction.followUp({
-            content: "Este usuário não pode receber o cargo 4un!",
+            content: "Este usuário não pode receber o cargo us!",
             ephemeral: true
           });
           return;
         }
       }
     }
+
 
     // Verificar limites
     const roleMembers = role.members.size;
@@ -278,22 +279,22 @@ async function createMembersEmbed(interaction: ButtonInteraction): Promise<Embed
   const roles = await interaction.guild.roles.fetch();
   const firstLadyRole = roles.get(config.firstLadyRoleId!);
   const antiBanRole = roles.get(config.antiBanRoleId!);
-  const fourUnitRole = roles.get(config.fourUnitRoleId!);
+  const usRole = roles.get(config.usRoleId!);
 
   const firstLadyCount = firstLadyRole?.members.size || 0;
   const antiBanCount = antiBanRole?.members.size || 0;
-  const fourUnitCount = fourUnitRole?.members.size || 0;
+  const usCount = usRole?.members.size || 0;
 
   const firstLadyLimit = getRoleLimit(config, config.firstLadyRoleId!);
   const antiBanLimit = getRoleLimit(config, config.antiBanRoleId!);
-  const fourUnitLimit = getRoleLimit(config, config.fourUnitRoleId!);
+  const usLimit = getRoleLimit(config, config.usRoleId!);
 
   return new EmbedBuilder()
     .setTitle("👥 Membros da Panela")
     .setDescription(
       `<:anel:1337954327226093598> **Primeira Dama** (${firstLadyCount}/${firstLadyLimit})\n${formatMembersList(firstLadyRole?.members)}\n\n` +
       `<:martelo:1337267926452932628> **Antiban** (${antiBanCount}/${antiBanLimit})\n${formatMembersList(antiBanRole?.members)}\n\n` +
-      `<:cor:1337925018872709230> **4un** (${fourUnitCount}/${fourUnitLimit})\n${formatMembersList(fourUnitRole?.members)}`
+      `<:cor:1337925018872709230> **Us** (${usCount}/${usLimit})\n${formatMembersList(usRole?.members)}`
     )
     .setColor("#2F3136")
     .setTimestamp();
