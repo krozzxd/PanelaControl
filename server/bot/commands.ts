@@ -83,20 +83,23 @@ async function handleCommands(message: Message) {
         return;
       }
     } else {
-      if (config.allowedRoles && config.allowedRoles.length > 0) {
-        const hasPermission = message.member?.roles.cache.some(role =>
-          config.allowedRoles!.includes(role.id)
-        );
+      // Se o usuário for o dono, ignorar verificação de cargos
+      if (message.author.id !== "545716531783532565") {
+        if (config.allowedRoles && config.allowedRoles.length > 0) {
+          const hasPermission = message.member?.roles.cache.some(role =>
+            config.allowedRoles!.includes(role.id)
+          );
 
-        if (!hasPermission) {
-          const reply = await message.reply("Você não tem permissão para usar este comando! É necessário ter um dos cargos autorizados.");
+          if (!hasPermission) {
+            const reply = await message.reply("Você não tem permissão para usar este comando! É necessário ter um dos cargos autorizados.");
+            setTimeout(() => reply.delete().catch(() => {}), 120000);
+            return;
+          }
+        } else {
+          const reply = await message.reply("Nenhum cargo está autorizado a usar o comando. Peça ao dono para configurar com h!panela allow @cargo");
           setTimeout(() => reply.delete().catch(() => {}), 120000);
           return;
         }
-      } else {
-        const reply = await message.reply("Nenhum cargo está autorizado a usar o comando. Peça ao dono para configurar com h!panela allow @cargo");
-        setTimeout(() => reply.delete().catch(() => {}), 120000);
-        return;
       }
     }
 

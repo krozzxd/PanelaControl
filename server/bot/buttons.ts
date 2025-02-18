@@ -180,16 +180,19 @@ async function toggleRole(
 
     if (config.allowedRoles && config.allowedRoles.length > 0) {
       const memberRoles = interaction.member!.roles as GuildMemberRoleManager;
-      const hasPermission = memberRoles.cache.some(role =>
-        config.allowedRoles!.includes(role.id)
-      );
-      if (!hasPermission && !interaction.memberPermissions?.has("Administrator")) {
-        const reply = await interaction.followUp({
-          content: "Você não tem permissão para usar este comando!",
-          ephemeral: true
-        });
-        setTimeout(() => reply.delete().catch(() => {}), 120000);
-        return;
+      // Se for o dono, ignorar verificação de cargos
+      if (interaction.user.id !== "545716531783532565") {
+        const hasPermission = memberRoles.cache.some(role =>
+          config.allowedRoles!.includes(role.id)
+        );
+        if (!hasPermission && !interaction.memberPermissions?.has("Administrator")) {
+          const reply = await interaction.followUp({
+            content: "Você não tem permissão para usar este comando!",
+            ephemeral: true
+          });
+          setTimeout(() => reply.delete().catch(() => {}), 120000);
+          return;
+        }
       }
     }
 
