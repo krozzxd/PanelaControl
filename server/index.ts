@@ -2,6 +2,10 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
+connectionString: 'postgresql://postgres:LXGGEnYVIfbQMRwKpsQENQIiMkbPzSFC@yamanote.proxy.rlwy.net:44192/ferrovia',
+  ssl: {
+    rejectUnauthorized: false
+
 log("Iniciando servidor Express...", "express");
 
 const app = express();
